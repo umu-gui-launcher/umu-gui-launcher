@@ -10,6 +10,9 @@ from .icon_manager import IconManager
 from .log_window import LogWindow
 import signal
 import requests
+import logging
+
+logger = logging.getLogger('umu-launcher')
 
 class GameList(Gtk.Box):
     def __init__(self, app, display):
@@ -148,7 +151,7 @@ class GameList(Gtk.Box):
                 pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_size(game.icon, 64, 64)
                 icon.set_pixbuf(pixbuf)
             except Exception as e:
-                print(f"Error loading icon: {e}")
+                logger.error(f"Error loading icon: {e}")
         box.append(icon)
         
         # Create a box for game info
@@ -270,7 +273,7 @@ class GameList(Gtk.Box):
             # Check if process has exited
             if game.process and game.process.poll() is not None:
                 # Game has stopped
-                print(f"Game {game.name} has stopped")
+                logger.info(f"Game {game.name} has stopped")
                 # Add stop message to log
                 if game in self.log_windows:
                     GLib.idle_add(self.log_windows[game].append_text, f"\n=== Game stopped at {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n")
@@ -279,13 +282,13 @@ class GameList(Gtk.Box):
                 return False  # Stop monitoring
             return True  # Continue monitoring
         except Exception as e:
-            print(f"Error checking game status: {e}")
+            logger.error(f"Error checking game status: {e}")
             return False  # Stop monitoring on error
 
     def stop_game(self, game):
         """Stop a running game and its associated processes"""
         try:
-            print(f"Stopping game {game.name}")
+            logger.info(f"Stopping game {game.name}")
             
             # Log to shared log window if it exists
             if self.app.shared_log_window:
@@ -295,7 +298,7 @@ class GameList(Gtk.Box):
                 try:
                     # First try to terminate the main process group
                     pid = game.process.pid
-                    print(f"Sending SIGTERM to process group {pid}")
+                    logger.info(f"Sending SIGTERM to process group {pid}")
                     os.killpg(pid, signal.SIGTERM)
                     
                     # Wait briefly for main process to terminate
@@ -315,7 +318,7 @@ class GameList(Gtk.Box):
                             if proc_pid:
                                 try:
                                     pid = int(proc_pid)
-                                    print(f"Terminating wine process {pid}")
+                                    logger.info(f"Terminating wine process {pid}")
                                     if self.app.shared_log_window:
                                         self.app.shared_log_window.append_text(f"Terminating wine process {pid}\n")
                                     os.kill(pid, signal.SIGTERM)
@@ -336,7 +339,7 @@ class GameList(Gtk.Box):
                             if proc_pid:
                                 try:
                                     pid = int(proc_pid)
-                                    print(f"Force killing wine process {pid}")
+                                    logger.info(f"Force killing wine process {pid}")
                                     if self.app.shared_log_window:
                                         self.app.shared_log_window.append_text(f"Force killing wine process {pid}\n")
                                     os.kill(pid, signal.SIGKILL)
@@ -344,7 +347,7 @@ class GameList(Gtk.Box):
                                     pass
                     except Exception as e:
                         error_msg = f"Error cleaning up wine processes: {e}"
-                        print(error_msg)
+                        logger.error(error_msg)
                         if self.app.shared_log_window:
                             self.app.shared_log_window.append_text(f"ERROR: {error_msg}\n")
                     
@@ -353,20 +356,20 @@ class GameList(Gtk.Box):
                         subprocess.run(['wineserver', '-k'], timeout=3)
                     except Exception as e:
                         error_msg = f"Error stopping wineserver: {e}"
-                        print(error_msg)
+                        logger.error(error_msg)
                         if self.app.shared_log_window:
                             self.app.shared_log_window.append_text(f"ERROR: {error_msg}\n")
                         try:
                             subprocess.run(['wineserver', '-k9'], timeout=3)
                         except Exception as e:
                             error_msg = f"Error force stopping wineserver: {e}"
-                            print(error_msg)
+                            logger.error(error_msg)
                             if self.app.shared_log_window:
                                 self.app.shared_log_window.append_text(f"ERROR: {error_msg}\n")
                     
                 except Exception as e:
                     error_msg = f"Error in process cleanup: {e}"
-                    print(error_msg)
+                    logger.error(error_msg)
                     if self.app.shared_log_window:
                         self.app.shared_log_window.append_text(f"ERROR: {error_msg}\n")
             
@@ -381,7 +384,7 @@ class GameList(Gtk.Box):
             
         except Exception as e:
             error_msg = f"Error stopping game: {e}"
-            print(error_msg)
+            logger.error(error_msg)
             if self.app.shared_log_window:
                 self.app.shared_log_window.append_text(f"ERROR: {error_msg}\n")
         
@@ -441,7 +444,7 @@ class GameList(Gtk.Box):
             # Add the game path
             command.append(game.file_path)
             
-            print(f"Launching game with command: {' '.join(command)}")
+            logger.info(f"Launching game with command: {' '.join(command)}")
             
             # Get or create shared log window without showing it
             if not self.app.shared_log_window:
@@ -457,7 +460,7 @@ class GameList(Gtk.Box):
                     for line in pipe:
                         GLib.idle_add(log_window.append_text, f"{prefix}{line}")
                 except Exception as e:
-                    print(f"Error logging output: {e}")
+                    logger.error(f"Error logging output: {e}")
             
             # Setup environment
             env = os.environ.copy()
@@ -481,7 +484,7 @@ class GameList(Gtk.Box):
             
             if not os.path.exists(protonpath):
                 error_msg = f"Error: PROTONPATH directory does not exist: {protonpath}"
-                print(error_msg)
+                logger.error(error_msg)
                 if self.app.shared_log_window:
                     self.app.shared_log_window.append_text(f"ERROR: {error_msg}\n")
                 self.app.show_error_dialog(error_msg)
@@ -516,7 +519,7 @@ class GameList(Gtk.Box):
             GLib.idle_add(self.refresh)
             
         except Exception as e:
-            print(f"Error launching game: {e}")
+            logger.error(f"Error launching game: {e}")
             game.process = None
             GLib.idle_add(self.refresh)
 
@@ -563,8 +566,10 @@ class GameList(Gtk.Box):
         """Handle configure button click"""
         from .game_config_window import GameConfigWindow
         
-        def on_game_updated(updated_game):
-            self.refresh()
+        def on_game_updated(updated_game, confirmed=True):
+            # Only refresh if configuration was confirmed
+            if confirmed:
+                self.refresh()
         
         config_window = GameConfigWindow(
             self.app.window,
@@ -572,6 +577,7 @@ class GameList(Gtk.Box):
             self.icon_manager,
             on_game_updated
         )
+        config_window.set_transient_for(self.get_root())
         config_window.present()
 
     def show_icon_picker(self, game_info):
@@ -615,7 +621,7 @@ class GameList(Gtk.Box):
                 scaled_pixbuf = pixbuf.scale_simple(64, 64, GdkPixbuf.InterpType.BILINEAR)
                 image.set_from_pixbuf(scaled_pixbuf)
             except Exception as e:
-                print(f"Error loading preview: {e}")
+                logger.error(f"Error loading preview: {e}")
                 continue
             
             # Store URL with the image
@@ -660,23 +666,3 @@ class GameList(Gtk.Box):
                     pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_size(game_info.icon, 64, 64)
                     row.get_first_child().get_first_child().set_from_pixbuf(pixbuf)
                 break
-
-    def add_game(self, name, executable_path, icon_path=None):
-        """Add a new game to the list."""
-        # Create game with current global settings as defaults
-        game = Game(
-            name=name,
-            executable_path=executable_path,
-            icon_path=icon_path,
-            flags={
-                'fullscreen': self.app.config['flags']['fullscreen'],
-                'virtual_desktop': self.app.config['flags']['virtual_desktop'],
-                'borderless': self.app.config['flags']['borderless'],
-                'gamemode': self.app.config['flags']['gamemode'],
-                'mangohud': self.app.config['flags']['mangohud'],
-                'additional_flags': self.app.config['flags']['additional_flags'],
-                'wineprefix': self.app.config['flags']['wineprefix'],
-                'protonpath': self.app.config['flags']['protonpath'],
-                'store': self.app.config['flags']['store']
-            }
-        )

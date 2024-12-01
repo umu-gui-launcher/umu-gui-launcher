@@ -4,6 +4,7 @@ import signal
 import subprocess
 import gi
 import time
+import logging
 gi.require_version('Gtk', '4.0')
 from gi.repository import Gtk, Gio, GLib
 
@@ -11,6 +12,9 @@ from .game_info import GameInfo
 from .config_window import ConfigWindow
 from .game_list import GameList
 from .utils import is_windows_executable
+from .log_window import LogWindow
+
+logger = logging.getLogger('umu-launcher')
 
 class UmuRunLauncher(Gtk.Application):
     def __init__(self):
@@ -45,6 +49,7 @@ class UmuRunLauncher(Gtk.Application):
         # Load config and setup monitor
         self.load_config()
         self.setup_config_monitor()
+        logger.debug("Initializing UMU Launcher")
 
     def setup_config_monitor(self):
         """Setup file monitor for config.json"""
@@ -76,7 +81,7 @@ class UmuRunLauncher(Gtk.Application):
             self.config_monitor.connect('changed', on_config_changed)
             
         except Exception as e:
-            print(f"Error setting up config monitor: {e}")
+            logger.error("Error setting up config monitor: %s", e)
     
     def _delayed_config_reload(self):
         """Reload config after a delay to prevent rapid reloading"""
@@ -93,10 +98,10 @@ class UmuRunLauncher(Gtk.Application):
                 self.game_list.clear()
                 self.load_saved_games()
             
-            print("Config reloaded successfully")
+            logger.debug("Config reloaded successfully")
             
         except Exception as e:
-            print(f"Error reloading config: {e}")
+            logger.error("Error reloading config: %s", e)
         
         # Clear the source ID
         self._config_changed_source_id = None
@@ -106,6 +111,7 @@ class UmuRunLauncher(Gtk.Application):
         Gtk.Application.do_startup(self)
 
     def do_activate(self):
+        logger.debug("Creating main window")
         # Only create window if one doesn't exist
         if not self.window:
             # Create the main window
@@ -237,6 +243,7 @@ class UmuRunLauncher(Gtk.Application):
 
     def load_config(self):
         """Load configuration from config.json"""
+        logger.debug("Loading configuration from %s", os.path.expanduser("~/.config/umu-launcher/config.json"))
         try:
             config_dir = os.path.expanduser("~/.config/umu-launcher")
             os.makedirs(config_dir, exist_ok=True)
@@ -260,12 +267,13 @@ class UmuRunLauncher(Gtk.Application):
             self.save_config()
             
         except Exception as e:
-            print(f"Error loading config: {e}")
+            logger.error("Error loading config: %s", e)
             # Keep using default config
             self.save_config()
 
     def save_config(self):
         """Save configuration to file"""
+        logger.debug("Saving configuration to %s", os.path.expanduser("~/.config/umu-launcher/config.json"))
         try:
             config_dir = os.path.expanduser("~/.config/umu-launcher")
             os.makedirs(config_dir, exist_ok=True)
@@ -274,10 +282,10 @@ class UmuRunLauncher(Gtk.Application):
             with open(config_file, 'w') as f:
                 json.dump(self.config, f, indent=4)
                 
-            print("Configuration saved successfully")
+            logger.debug("Configuration saved successfully")
             
         except Exception as e:
-            print(f"Error saving config: {e}")
+            logger.error("Error saving config: %s", e)
 
     def launch_game(self, game_path):
         """Launch a specific game by path"""
@@ -309,7 +317,7 @@ class UmuRunLauncher(Gtk.Application):
             GameList.launch_game(game)
             return 0
         else:
-            print(f"Error: Game not found in configuration: {game_path}")
+            logger.error("Game not found in configuration: %s", game_path)
             return 1
 
     def on_add_game_clicked(self, button):
@@ -430,7 +438,7 @@ class UmuRunLauncher(Gtk.Application):
                 self.save_config()
                 
         except Exception as e:
-            print(f"Error loading saved games: {e}")
+            logger.error("Error loading saved games: %s", e)
             self.show_error_dialog(f"Error loading saved games: {str(e)}")
 
     def on_settings_clicked(self, button):
@@ -473,13 +481,13 @@ class UmuRunLauncher(Gtk.Application):
                 
                 if wine_pids:
                     killed_any = True
-                    print(f"Found Wine processes: {wine_pids}")
+                    logger.info("Found Wine processes: %s", wine_pids)
                     
                     # First try SIGTERM
                     for pid in wine_pids:
                         try:
                             os.kill(int(pid), signal.SIGTERM)
-                            print(f"Sent SIGTERM to process {pid}")
+                            logger.info("Sent SIGTERM to process %s", pid)
                         except ProcessLookupError:
                             pass
                     
@@ -490,7 +498,7 @@ class UmuRunLauncher(Gtk.Application):
                     for pid in wine_pids:
                         try:
                             os.kill(int(pid), signal.SIGKILL)
-                            print(f"Sent SIGKILL to process {pid}")
+                            logger.info("Sent SIGKILL to process %s", pid)
                         except ProcessLookupError:
                             pass
                 
@@ -504,7 +512,7 @@ class UmuRunLauncher(Gtk.Application):
                         for pid in umu_pids:
                             if pid:
                                 try:
-                                    print(f"Killing umu-run process: {pid}")
+                                    logger.info("Killing umu-run process: %s", pid)
                                     os.kill(int(pid), signal.SIGKILL)
                                 except ProcessLookupError:
                                     pass
@@ -512,20 +520,20 @@ class UmuRunLauncher(Gtk.Application):
                     pass
                 
             except Exception as e:
-                print(f"Error killing Wine processes: {e}")
+                logger.error("Error killing Wine processes: %s", e)
                 self.show_error_dialog(str(e))
         
         except Exception as e:
-            print(f"Error in kill_all_games: {e}")
+            logger.error("Error in kill_all_games: %s", e)
             self.show_error_dialog(str(e))
             return
         
         # Refresh the list to update stop buttons
         if killed_any:
-            print("Games killed, refreshing list")
+            logger.info("Games killed, refreshing list")
             self.game_list.refresh(self.games)
         else:
-            print("No running games found")
+            logger.info("No running games found")
             dialog = Gtk.MessageDialog(
                 transient_for=self.window,
                 modal=True,
