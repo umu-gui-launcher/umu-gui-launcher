@@ -37,7 +37,7 @@ class GameList:
             print(f"Error searching for icons: {e}")
             return []
 
-def main():
+if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='UMU Game Launcher')
     parser.add_argument('--launch', help='Launch a specific game by path')
     args = parser.parse_args()
@@ -51,6 +51,3 @@ def main():
         # Run normal GUI
         exit_status = app.run(sys.argv)
         sys.exit(exit_status)
-
-if __name__ == "__main__":
-    main()

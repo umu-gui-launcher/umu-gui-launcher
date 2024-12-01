@@ -205,6 +205,15 @@ class ConfigWindow(Gtk.Dialog):
         api_key_item.append(api_key_box)
         advanced_group.append(api_key_item)
         
+        # Console
+        console_box = self.create_setting_item(
+            'console',
+            "Console",
+            "Show Wine console output",
+            config
+        )
+        advanced_group.append(console_box)
+        
         # Additional flags
         flags_item = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
         flags_item.add_css_class('settings-item')

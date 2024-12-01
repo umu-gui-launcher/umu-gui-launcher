@@ -10,7 +10,6 @@ from .icon_manager import IconManager
 from .log_window import LogWindow
 import signal
 import requests
-import shlex
 
 class GameList(Gtk.Box):
     def __init__(self, app, display):
@@ -410,28 +409,36 @@ class GameList(Gtk.Box):
                     break
             
             # Build command
-            command = [self.app.config.get('umu_run_command', 'umu-run')]
+            command = []
             
-            # Add flags
+            # Add gamemoderun if enabled
             if flags.get('gamemode', False):
-                command.append('--gamemode')
+                command.extend(['gamemoderun'])
+                
+            # Add mangohud if enabled
             if flags.get('mangohud', False):
-                command.append('--mangohud')
-            if flags.get('fullscreen', False):
-                command.append('--fullscreen')
-            if flags.get('borderless', False):
-                command.append('--borderless')
+                command.extend(['mangohud'])
+            
+            # Add umu-run and game path
+            command.extend(['umu-run'])
+            
+            # Add wine flags
             if flags.get('virtual_desktop', False):
                 width = flags.get('virtual_desktop_width', 1920)
                 height = flags.get('virtual_desktop_height', 1080)
                 command.extend(['--virtual-desktop', f'{width}x{height}'])
             
-            # Add any additional flags
+            if flags.get('fullscreen', False):
+                command.extend(['--fullscreen'])
+            elif flags.get('borderless', False):
+                command.extend(['--borderless'])
+            
+            # Add additional flags if any
             additional_flags = flags.get('additional_flags', '').strip()
             if additional_flags:
-                command.extend(shlex.split(additional_flags))
+                command.extend(additional_flags.split())
             
-            # Add game path
+            # Add the game path
             command.append(game.file_path)
             
             print(f"Launching game with command: {' '.join(command)}")

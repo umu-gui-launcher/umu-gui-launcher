@@ -31,6 +31,7 @@ class UmuRunLauncher(Gtk.Application):
                 'fullscreen': True,
                 'virtual_desktop': True,
                 'borderless': True,
+                'console': True,
                 'gamemode': True,
                 'mangohud': True,
                 'additional_flags': ''
