@@ -32,6 +32,18 @@ pip install -r requirements.txt
 Run the launcher:
 ```bash
 python3 main.py
+
+# Verbose mode (shows debug logs)
+python3 main.py -v
+
+# Quiet mode (shows only errors)
+python3 main.py -q
+
+# Suppress graphics driver warnings
+python3 main.py -q 2>/dev/null
+
+# Launch specific game
+python3 main.py --launch /path/to/game.exe
 ```
 
 ## Configuration
