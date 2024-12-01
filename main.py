@@ -6,12 +6,10 @@ from umu_launcher.app import UmuRunLauncher
 from steamgrid_api import SteamGridDB
 import argparse
 
-STEAMGRIDDB_API_KEY = "895d7abd76c8c0e98bbfca161b174ad5"
-
 class GameList:
-    def __init__(self):
+    def __init__(self, api_key: str):
         """Initialize GameList with SteamGridDB integration"""
-        self.steamgrid = SteamGridDB(STEAMGRIDDB_API_KEY)
+        self.steamgrid = SteamGridDB(api_key)
         
     def search_icons(self, game_name: str):
         """

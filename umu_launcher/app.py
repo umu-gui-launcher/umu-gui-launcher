@@ -35,7 +35,7 @@ class UmuRunLauncher(Gtk.Application):
                 'mangohud': True,
                 'additional_flags': ''
             },
-            'steamgriddb_api_key': '895d7abd76c8c0e98bbfca161b174ad5'  # Default API key
+            'steamgriddb_api_key': ''  # API key should be set by user
         }
         
         # Load config and setup monitor

@@ -1,0 +1,12 @@
+{
+    "games": [],
+    "flags": {
+        "fullscreen": true,
+        "virtual_desktop": true,
+        "borderless": true,
+        "gamemode": true,
+        "mangohud": true,
+        "additional_flags": ""
+    },
+    "steamgriddb_api_key": "YOUR_API_KEY_HERE"
+}
