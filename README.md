@@ -4,6 +4,8 @@ A GTK4-based graphical frontend for umu-run, making it easier to manage and laun
 
 Created this project with Windsurf (i have no clue how it works) to make it easier to manage my Windows games on Linux.
 
+![Main Window](docs/images/main-window.png)
+
 ## Features
 
 - Clean and modern GTK 4.0 interface
@@ -12,6 +14,17 @@ Created this project with Windsurf (i have no clue how it works) to make it easi
 - Virtual desktop support
 - SteamGridDB integration for game icons
 - Borderless window mode support
+
+## Screenshots
+
+### Game List
+![Game List](docs/images/game-list.png)
+
+### Game Configuration
+![Game Configuration](docs/images/game-config.png)
+
+### Settings
+![Settings](docs/images/settings.png)
 
 ## Requirements
 
