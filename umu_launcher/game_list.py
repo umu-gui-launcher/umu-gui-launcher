@@ -461,10 +461,33 @@ class GameList(Gtk.Box):
             
             # Setup environment
             env = os.environ.copy()
+            
             # Set fixed GAMEID for all games
             env['GAMEID'] = 'umu-dauntless'
-            # Use default wine prefix
-            env['WINEPREFIX'] = os.path.expanduser('~/.wine')
+            
+            # Set STORE type (default to egs)
+            env['STORE'] = flags.get('store', 'egs').strip()
+            
+            # Use configured wine prefix, ensure it's never empty
+            wineprefix = flags.get('wineprefix', '').strip()
+            if not wineprefix:
+                wineprefix = os.path.expanduser('~/.wine')
+            env['WINEPREFIX'] = wineprefix
+            
+            # Use configured proton path, ensure it exists
+            protonpath = flags.get('protonpath', '').strip()
+            if not protonpath:
+                protonpath = os.path.expanduser('~/.local/share/Steam/compatibilitytools.d/UMU-Latest')
+            
+            if not os.path.exists(protonpath):
+                error_msg = f"Error: PROTONPATH directory does not exist: {protonpath}"
+                print(error_msg)
+                if self.app.shared_log_window:
+                    self.app.shared_log_window.append_text(f"ERROR: {error_msg}\n")
+                self.app.show_error_dialog(error_msg)
+                return
+                
+            env['PROTONPATH'] = protonpath
             
             # Create process group with output logging
             game.process = subprocess.Popen(
@@ -555,6 +578,7 @@ class GameList(Gtk.Box):
         """Show icon picker dialog for a game"""
         dialog = Gtk.Dialog(
             title=f"Choose Icon for {game_info.name}",
+            transient_for=self.get_root(),
             modal=True
         )
         dialog.set_default_size(400, 500)
@@ -570,7 +594,7 @@ class GameList(Gtk.Box):
         grid.set_activate_on_single_click(True)
         
         # Search for icons
-        icons = self.icon_manager.search_steamgrid(game_info.name)
+        icons = self.icon_manager.search_steamgrid(game_info.name, dialog)
         
         for icon in icons:
             icon_url = icon.get('url')
@@ -636,3 +660,23 @@ class GameList(Gtk.Box):
                     pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_size(game_info.icon, 64, 64)
                     row.get_first_child().get_first_child().set_from_pixbuf(pixbuf)
                 break
+
+    def add_game(self, name, executable_path, icon_path=None):
+        """Add a new game to the list."""
+        # Create game with current global settings as defaults
+        game = Game(
+            name=name,
+            executable_path=executable_path,
+            icon_path=icon_path,
+            flags={
+                'fullscreen': self.app.config['flags']['fullscreen'],
+                'virtual_desktop': self.app.config['flags']['virtual_desktop'],
+                'borderless': self.app.config['flags']['borderless'],
+                'gamemode': self.app.config['flags']['gamemode'],
+                'mangohud': self.app.config['flags']['mangohud'],
+                'additional_flags': self.app.config['flags']['additional_flags'],
+                'wineprefix': self.app.config['flags']['wineprefix'],
+                'protonpath': self.app.config['flags']['protonpath'],
+                'store': self.app.config['flags']['store']
+            }
+        )

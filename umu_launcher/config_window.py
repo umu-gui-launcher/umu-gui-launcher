@@ -205,6 +205,78 @@ class ConfigWindow(Gtk.Dialog):
         api_key_item.append(api_key_box)
         advanced_group.append(api_key_item)
         
+        # WINEPREFIX
+        wineprefix_item = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        wineprefix_item.add_css_class('settings-item')
+        
+        wineprefix_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        
+        wineprefix_label_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        wineprefix_label = Gtk.Label(label="WINEPREFIX")
+        wineprefix_label.set_halign(Gtk.Align.START)
+        wineprefix_desc = Gtk.Label(label="Path to Wine prefix directory (default: ~/.wine)")
+        wineprefix_desc.add_css_class('settings-description')
+        wineprefix_desc.set_halign(Gtk.Align.START)
+        wineprefix_label_box.append(wineprefix_label)
+        wineprefix_label_box.append(wineprefix_desc)
+        wineprefix_box.append(wineprefix_label_box)
+        
+        self.wineprefix_entry = Gtk.Entry()
+        self.wineprefix_entry.set_text(config.get('flags', {}).get('wineprefix', os.path.expanduser('~/.wine')))
+        self.wineprefix_entry.set_hexpand(True)
+        wineprefix_box.append(self.wineprefix_entry)
+        
+        wineprefix_item.append(wineprefix_box)
+        advanced_group.append(wineprefix_item)
+        
+        # PROTONPATH
+        protonpath_item = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        protonpath_item.add_css_class('settings-item')
+        
+        protonpath_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        
+        protonpath_label_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        protonpath_label = Gtk.Label(label="PROTONPATH")
+        protonpath_label.set_halign(Gtk.Align.START)
+        protonpath_desc = Gtk.Label(label="Path to Proton directory (default: ~/.local/share/Steam/compatibilitytools.d/UMU-Latest)")
+        protonpath_desc.add_css_class('settings-description')
+        protonpath_desc.set_halign(Gtk.Align.START)
+        protonpath_label_box.append(protonpath_label)
+        protonpath_label_box.append(protonpath_desc)
+        protonpath_box.append(protonpath_label_box)
+        
+        self.protonpath_entry = Gtk.Entry()
+        self.protonpath_entry.set_text(config.get('flags', {}).get('protonpath', os.path.expanduser('~/.local/share/Steam/compatibilitytools.d/UMU-Latest')))
+        self.protonpath_entry.set_hexpand(True)
+        protonpath_box.append(self.protonpath_entry)
+        
+        protonpath_item.append(protonpath_box)
+        advanced_group.append(protonpath_item)
+        
+        # STORE
+        store_item = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        store_item.add_css_class('settings-item')
+        
+        store_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        
+        store_label_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        store_label = Gtk.Label(label="STORE")
+        store_label.set_halign(Gtk.Align.START)
+        store_desc = Gtk.Label(label="Store type (e.g., egs for Epic Games Store)")
+        store_desc.add_css_class('settings-description')
+        store_desc.set_halign(Gtk.Align.START)
+        store_label_box.append(store_label)
+        store_label_box.append(store_desc)
+        store_box.append(store_label_box)
+        
+        self.store_entry = Gtk.Entry()
+        self.store_entry.set_text(config.get('flags', {}).get('store', 'egs'))
+        self.store_entry.set_hexpand(True)
+        store_box.append(self.store_entry)
+        
+        store_item.append(store_box)
+        advanced_group.append(store_item)
+        
         # Additional flags
         flags_item = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
         flags_item.add_css_class('settings-item')
@@ -287,30 +359,40 @@ class ConfigWindow(Gtk.Dialog):
     
     def on_response(self, dialog, response):
         if response == Gtk.ResponseType.OK:
-            # Update flags
-            if 'flags' not in self.config:
-                self.config['flags'] = {}
-            
-            for flag, switch in self.flag_switches.items():
-                self.config['flags'][flag] = switch.get_active()
+            # Update flag switches
+            for flag_name, switch in self.flag_switches.items():
+                self.config['flags'][flag_name] = switch.get_active()
             
             # Update API key
             self.config['steamgriddb_api_key'] = self.api_key_entry.get_text().strip()
             
+            # Update WINEPREFIX
+            self.config['flags']['wineprefix'] = self.wineprefix_entry.get_text().strip()
+            
+            # Update PROTONPATH with validation
+            protonpath = self.protonpath_entry.get_text().strip()
+            if protonpath:  # Only validate if a custom path is provided
+                if not os.path.exists(protonpath):
+                    error_dialog = Gtk.MessageDialog(
+                        transient_for=self,
+                        modal=True,
+                        message_type=Gtk.MessageType.ERROR,
+                        buttons=Gtk.ButtonsType.OK,
+                        text="Invalid PROTONPATH",
+                        secondary_text=f"The specified PROTONPATH directory does not exist:\n{protonpath}"
+                    )
+                    error_dialog.connect('response', lambda d, r: d.destroy())
+                    error_dialog.present()
+                    return
+            self.config['flags']['protonpath'] = protonpath
+            
+            # Update STORE
+            self.config['flags']['store'] = self.store_entry.get_text().strip()
+            
             # Update additional flags
             self.config['flags']['additional_flags'] = self.add_flags_entry.get_text().strip()
             
-            # Get the app instance to save the config
-            app = self.get_transient_for().get_application()
-            
-            # Update app's config with our changes
-            app.config['flags'] = self.config['flags']
-            app.config['steamgriddb_api_key'] = self.config['steamgriddb_api_key']
-            
-            # Save the configuration
-            app.save_config()
-            
-            # Call callback if provided
+            # Call the callback with updated config
             if self.callback:
                 self.callback(self.config)
         

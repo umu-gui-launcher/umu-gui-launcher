@@ -33,7 +33,11 @@ class UmuRunLauncher(Gtk.Application):
                 'borderless': True,
                 'gamemode': True,
                 'mangohud': True,
-                'additional_flags': ''
+                'additional_flags': '',
+                'wineprefix': os.path.expanduser('~/.wine').strip(),  # Default WINEPREFIX
+                'protonpath': os.path.expanduser('~/.local/share/Steam/compatibilitytools.d/UMU-Latest').strip(),  # Default PROTONPATH
+                'store': 'egs',  # Default store (egs for Epic Games Store)
+                'gameid': 'umu-dauntless'  # Default GAMEID for umu-run
             },
             'steamgriddb_api_key': ''  # API key should be set by user
         }
@@ -311,19 +315,23 @@ class UmuRunLauncher(Gtk.Application):
     def on_add_game_clicked(self, button):
         dialog = Gtk.FileChooserDialog(
             title="Select Game Executable",
-            parent=self.window,
-            action=Gtk.FileChooserAction.OPEN,
+            transient_for=self.window,
+            modal=True,
+            action=Gtk.FileChooserAction.OPEN
         )
         dialog.add_buttons(
-            "Cancel", Gtk.ResponseType.CANCEL,
-            "Add", Gtk.ResponseType.ACCEPT
+            "_Cancel", Gtk.ResponseType.CANCEL,
+            "_Add", Gtk.ResponseType.ACCEPT
         )
 
-        # Add file filters
+        # Add file filters more efficiently
         filter_exe = Gtk.FileFilter()
         filter_exe.set_name("Windows Executables")
-        filter_exe.add_pattern("*.exe")
+        filter_exe.add_suffix("exe")  # More efficient than add_pattern
         dialog.add_filter(filter_exe)
+
+        # Set current folder to home directory for faster initial load
+        dialog.set_current_folder(Gio.File.new_for_path(os.path.expanduser("~")))
 
         dialog.connect('response', self.on_file_chosen)
         dialog.present()
@@ -336,47 +344,38 @@ class UmuRunLauncher(Gtk.Application):
                 # Verify it's a Windows executable
                 if not is_windows_executable(file_path):
                     self.show_error_dialog("Selected file is not a valid Windows executable")
-                    dialog.destroy()
                     return
 
                 # Check if game is already in the list
                 for game_config in self.config.get('games', []):
                     if isinstance(game_config, dict) and game_config.get('path') == file_path:
                         self.show_error_dialog("This game is already in your library")
-                        dialog.destroy()
                         return
 
                 # Create new game info
                 game_info = GameInfo(file_path)
                 
-                # Add to games list
-                self.games.append(game_info)
-                
-                # Save to config
-                if 'games' not in self.config:
-                    self.config['games'] = []
-                self.config['games'].append({
-                    'path': file_path,
-                    'name': game_info.name,
-                    'icon': game_info.icon,
-                    'flags': {
-                        'gamemode': False,
-                        'mangohud': False,
-                        'fullscreen': False,
-                        'virtual_desktop': False,
-                        'borderless': False,
-                        'additional_flags': ''
-                    }
-                })
-                self.save_config()
-                
-                # Refresh the list
-                self.game_list.refresh()
-                
                 # Show config window for the new game
                 from .game_config_window import GameConfigWindow
-                def on_game_updated(updated_game):
+                def on_game_updated(updated_game, confirmed):
+                    if confirmed:
+                        # Only add the game if user clicked Save
+                        self.games.append(game_info)
+                        
+                        # Save to config
+                        if 'games' not in self.config:
+                            self.config['games'] = []
+                        self.config['games'].append({
+                            'path': file_path,
+                            'name': game_info.name,
+                            'icon': game_info.icon,
+                            'flags': self.config['flags'].copy()  # Use global settings as defaults
+                        })
+                        self.save_config()
+                        
+                    # Refresh the list
                     self.game_list.refresh()
+                
                 config_window = GameConfigWindow(
                     self.window,
                     game_info,
@@ -384,9 +383,6 @@ class UmuRunLauncher(Gtk.Application):
                     on_game_updated
                 )
                 config_window.present()
-                
-        except Exception as e:
-            self.show_error_dialog(str(e))
         finally:
             dialog.destroy()
 

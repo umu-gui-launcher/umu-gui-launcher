@@ -113,16 +113,28 @@ class IconManager:
             print(f"Error getting icon: {e}")
             callback(None)
     
-    def search_steamgrid(self, game_name):
+    def search_steamgrid(self, game_name, parent_window=None):
         """Search for icons on SteamGridDB for a specific game"""
         try:
-            if self.steamgrid:
-                games = self.steamgrid.search_games(game_name)
-                if games:
-                    game_id = games[0]['id']
-                    icons = self.steamgrid.get_icons(game_id)
-                    # Return only the first 3 icons
-                    return icons[:3] if icons else []
+            if not self.steamgrid:
+                dialog = Gtk.MessageDialog(
+                    transient_for=parent_window,
+                    modal=True,
+                    message_type=Gtk.MessageType.ERROR,
+                    buttons=Gtk.ButtonsType.OK,
+                    text="SteamGridDB API Key Required",
+                    secondary_text="Please add your API key in Settings to search for game icons."
+                )
+                dialog.connect('response', lambda d, r: d.destroy())
+                dialog.present()
+                return []
+                
+            games = self.steamgrid.search_games(game_name)
+            if games:
+                game_id = games[0]['id']
+                icons = self.steamgrid.get_icons(game_id)
+                # Return only the first 3 icons
+                return icons[:3] if icons else []
         except Exception as e:
             print(f"Error searching SteamGridDB: {e}")
         return []

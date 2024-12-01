@@ -377,6 +377,28 @@ class GameConfigWindow(Gtk.Dialog):
         
         options_group.append(additional_item)
         
+        # Game ID entry
+        gameid_item = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        gameid_item.add_css_class('settings-item')
+        
+        gameid_label_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        gameid_label = Gtk.Label(label="Game ID")
+        gameid_label.set_halign(Gtk.Align.START)
+        gameid_desc = Gtk.Label(label="Game ID to pass to umu-run (e.g., umu-dauntless)")
+        gameid_desc.add_css_class('settings-description')
+        gameid_desc.set_halign(Gtk.Align.START)
+        gameid_label_box.append(gameid_label)
+        gameid_label_box.append(gameid_desc)
+        gameid_item.append(gameid_label_box)
+        
+        self.gameid_entry = Gtk.Entry()
+        self.gameid_entry.set_text(current_flags.get('gameid', 'umu-dauntless'))
+        self.gameid_entry.set_hexpand(True)
+        self.gameid_entry.add_css_class('settings-description')
+        gameid_item.append(self.gameid_entry)
+        
+        options_group.append(gameid_item)
+        
         main_box.append(options_group)
         
         # Icon section
@@ -736,44 +758,17 @@ class GameConfigWindow(Gtk.Dialog):
         try:
             if response == Gtk.ResponseType.OK:
                 # Update game name
-                new_name = self.name_entry.get_text().strip()
-                if new_name:
-                    self.game.name = new_name
+                self.game.name = self.name_entry.get_text().strip()
                 
                 # Update icon if one was selected
-                if hasattr(self, 'selected_icon_info') and self.selected_icon_info is not None:
-                    game_dir = os.path.dirname(self.game.file_path)
-                    icon_path = os.path.join(game_dir, "icon.png")
-                    
-                    source = self.selected_icon_info.get('source')
-                    if source == 'remove':
-                        # Remove the icon file if it exists
-                        if self.game.icon and os.path.exists(self.game.icon):
-                            try:
-                                os.remove(self.game.icon)
-                            except Exception as e:
-                                print(f"Error removing icon file: {e}")
-                        self.game.icon = None
-                    elif source == 'steamgrid':
-                        # For SteamGridDB icons, download and save
-                        icon_url = self.selected_icon_info.get('url')
-                        if icon_url and self.icon_manager.download_icon(icon_url, icon_path):
-                            self.game.icon = icon_path
-                    elif source == 'local':
-                        # For local files, copy to game directory
-                        try:
-                            source_path = self.selected_icon_info.get('filename')
-                            if source_path and os.path.exists(source_path):
-                                # Convert to PNG and resize if needed
-                                pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_size(source_path, 64, 64)
-                                pixbuf.savev(icon_path, "png", [], [])
-                                self.game.icon = icon_path
-                        except Exception as e:
-                            print(f"Error saving icon: {e}")
+                if self.selected_icon_info:
+                    self.game.icon = self.selected_icon_info['path']
                 
-                # Update game configuration
-                found = False
+                # Get app instance
                 app = self.get_transient_for().get_application()
+                
+                # Find and update existing configuration
+                found = False
                 for game_config in app.config['games']:
                     if isinstance(game_config, dict) and game_config.get('path') == self.game.file_path:
                         # Update existing configuration
@@ -788,7 +783,8 @@ class GameConfigWindow(Gtk.Dialog):
                                 'virtual_desktop_width': int(self.virtual_desktop_width.get_text() or 1920),
                                 'virtual_desktop_height': int(self.virtual_desktop_height.get_text() or 1080),
                                 'borderless': self.borderless_switch.get_active(),
-                                'additional_flags': self.additional_entry.get_text().strip()
+                                'additional_flags': self.additional_entry.get_text().strip(),
+                                'gameid': self.gameid_entry.get_text().strip()
                             }
                         })
                         found = True
@@ -808,7 +804,8 @@ class GameConfigWindow(Gtk.Dialog):
                             'virtual_desktop_width': int(self.virtual_desktop_width.get_text() or 1920),
                             'virtual_desktop_height': int(self.virtual_desktop_height.get_text() or 1080),
                             'borderless': self.borderless_switch.get_active(),
-                            'additional_flags': self.additional_entry.get_text().strip()
+                            'additional_flags': self.additional_entry.get_text().strip(),
+                            'gameid': self.gameid_entry.get_text().strip()
                         }
                     })
                 
@@ -817,7 +814,11 @@ class GameConfigWindow(Gtk.Dialog):
                 
                 # Call the callback to refresh the game list
                 if self.callback:
-                    self.callback(self.game)
+                    self.callback(self.game, True)  # Pass True to indicate user clicked Save
+            else:
+                # Call the callback with False to indicate user clicked Cancel
+                if self.callback:
+                    self.callback(self.game, False)
         except Exception as e:
             print(f"Error saving game configuration: {e}")
         finally:
