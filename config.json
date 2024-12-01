@@ -1,0 +1,41 @@
+{
+    "games": [
+        {
+            "path": "/home/hamza/Games/Turning Complete/Turing Complete.exe",
+            "flags": {
+                "gamemode": true,
+                "mangohud": true,
+                "fullscreen": false,
+                "virtual_desktop": false,
+                "borderless": false,
+                "additional_flags": ""
+            },
+            "name": "Turning Complete",
+            "icon": null
+        },
+        {
+            "path": "/home/hamza/Games/Dying Light - Platinum Edition/DyingLightGame.exe",
+            "flags": {
+                "gamemode": true,
+                "mangohud": true,
+                "fullscreen": false,
+                "virtual_desktop": false,
+                "borderless": false,
+                "additional_flags": ""
+            },
+            "name": "Dying Light",
+            "icon": "/home/hamza/Games/Dying Light - Platinum Edition/icon.png"
+        }
+    ],
+    "games_directory": "/home/hamza/Games",
+    "umu_run_command": "umu-run",
+    "flags": {
+        "fullscreen": true,
+        "virtual_desktop": false,
+        "borderless": false,
+        "console": false,
+        "gamemode": true,
+        "mangohud": true,
+        "additional_flags": ""
+    }
+}
