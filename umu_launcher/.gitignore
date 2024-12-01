@@ -2,7 +2,6 @@
 __pycache__/
 *.py[cod]
 *$py.class
-*.so
 .Python
 build/
 develop-eggs/
@@ -20,12 +19,21 @@ wheels/
 .installed.cfg
 *.egg
 
-# User-specific files
-~/.config/umu-launcher/
+# Personal configuration files
+config.json
 .env
+.env.*
+~/.config/
+*.local.json
 
 # IDE specific files
 .idea/
 .vscode/
 *.swp
 *.swo
+.DS_Store
+
+# Local game data
+games/
+*.save
+*.log
