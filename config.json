@@ -1,41 +1,16 @@
 {
-    "games": [
-        {
-            "path": "/home/hamza/Games/Turning Complete/Turing Complete.exe",
-            "flags": {
-                "gamemode": true,
-                "mangohud": true,
-                "fullscreen": false,
-                "virtual_desktop": false,
-                "borderless": false,
-                "additional_flags": ""
-            },
-            "name": "Turning Complete",
-            "icon": null
-        },
-        {
-            "path": "/home/hamza/Games/Dying Light - Platinum Edition/DyingLightGame.exe",
-            "flags": {
-                "gamemode": true,
-                "mangohud": true,
-                "fullscreen": false,
-                "virtual_desktop": false,
-                "borderless": false,
-                "additional_flags": ""
-            },
-            "name": "Dying Light",
-            "icon": "/home/hamza/Games/Dying Light - Platinum Edition/icon.png"
-        }
-    ],
-    "games_directory": "/home/hamza/Games",
-    "umu_run_command": "umu-run",
     "flags": {
-        "fullscreen": true,
+        "fullscreen": false,
         "virtual_desktop": false,
+        "virtual_desktop_width": 1920,
+        "virtual_desktop_height": 1080,
+        "gamemode": false,
+        "mangohud": false,
         "borderless": false,
-        "console": false,
-        "gamemode": true,
-        "mangohud": true,
         "additional_flags": ""
-    }
+    },
+    "games": [],
+    "games_directory": "",
+    "umu_run_command": "",
+    "steamgriddb_api_key": ""
 }
