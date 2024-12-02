@@ -12,11 +12,6 @@ A GTK-based game launcher for managing and running Windows games on Linux using 
 - Intuitive drag and drop interface:
   - Add games by dropping .exe files
   - Reorder games by dragging and dropping
-  - Visual feedback during drag operations
-- Dynamic game controls:
-  - Play/Stop button changes color (green/red)
-  - Automatic icon switching based on game state
-  - Visual feedback for running games
 
 ## Requirements
 
@@ -52,26 +47,6 @@ python3 main.py -q 2>/dev/null
 # Launch specific game
 python3 main.py --launch /path/to/game.exe
 ```
-
-## Game Management
-
-### Adding Games
-- Drag and drop .exe files directly into the launcher window
-- Visual indicator shows where to drop new games
-- Automatic game detection and configuration
-
-### Organizing Games
-- Click and drag games to reorder them
-- Visual feedback shows where games will be placed
-- Order is automatically saved
-- Drag between list or grid view
-
-### Game Controls
-- Play/Stop button changes dynamically:
-  - Green play button when game is stopped
-  - Red stop button when game is running
-- Configure button for game-specific settings
-- Remove button to uninstall games from launcher
 
 ## Configuration
 
