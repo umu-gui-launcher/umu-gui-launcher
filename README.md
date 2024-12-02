@@ -51,7 +51,6 @@ python3 main.py --launch /path/to/game.exe
 ## Configuration
 
 The launcher can be configured through the settings dialog (gear icon). Options include:
-- Recursive search
 - Display options (fullscreen, virtual desktop)
 - Performance options (GameMode, MangoHud)
 - Additional launch options
