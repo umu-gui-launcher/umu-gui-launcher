@@ -131,44 +131,6 @@ class ConfigWindow(Gtk.Dialog):
         
         main_box.append(perf_group)
         
-        # Display group
-        display_group = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-        display_group.add_css_class('settings-group')
-        
-        display_title = Gtk.Label(label="Display")
-        display_title.add_css_class('settings-group-title')
-        display_title.set_halign(Gtk.Align.START)
-        display_group.append(display_title)
-        
-        # Fullscreen
-        fullscreen_box = self.create_setting_item(
-            'fullscreen',
-            "Fullscreen",
-            "Run games in fullscreen mode",
-            config
-        )
-        display_group.append(fullscreen_box)
-        
-        # Borderless
-        borderless_box = self.create_setting_item(
-            'borderless',
-            "Borderless Window",
-            "Run games in borderless window mode",
-            config
-        )
-        display_group.append(borderless_box)
-        
-        # Virtual Desktop
-        virtual_desktop_box = self.create_setting_item(
-            'virtual_desktop',
-            "Virtual Desktop",
-            "Run games in a virtual desktop window",
-            config
-        )
-        display_group.append(virtual_desktop_box)
-        
-        main_box.append(display_group)
-        
         # Advanced group
         advanced_group = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
         advanced_group.add_css_class('settings-group')

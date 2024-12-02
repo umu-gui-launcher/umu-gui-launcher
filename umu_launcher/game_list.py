@@ -567,27 +567,16 @@ class GameList(Gtk.Box):
             if flags.get('mangohud', False):
                 command.extend(['mangohud'])
             
-            # Add umu-run and game path
+            # Add umu-run
             command.extend(['umu-run'])
             
-            # Add wine flags
-            if flags.get('virtual_desktop', False):
-                width = flags.get('virtual_desktop_width', 1920)
-                height = flags.get('virtual_desktop_height', 1080)
-                command.extend(['--virtual-desktop', f'{width}x{height}'])
-            
-            if flags.get('fullscreen', False):
-                command.extend(['--fullscreen'])
-            elif flags.get('borderless', False):
-                command.extend(['--borderless'])
+            # Add the game path
+            command.append(game.file_path)
             
             # Add additional flags if any
             additional_flags = flags.get('additional_flags', '').strip()
             if additional_flags:
                 command.extend(additional_flags.split())
-            
-            # Add the game path
-            command.append(game.file_path)
             
             logger.info(f"Launching game with command: {' '.join(command)}")
             

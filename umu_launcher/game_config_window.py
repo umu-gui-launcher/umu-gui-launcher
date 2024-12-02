@@ -230,131 +230,6 @@ class GameConfigWindow(Gtk.Dialog):
         
         options_group.append(mangohud_item)
         
-        # Fullscreen toggle
-        fullscreen_item = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
-        fullscreen_item.add_css_class('settings-item')
-        
-        fullscreen_label_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
-        fullscreen_label_box.set_hexpand(True)
-        fullscreen_label = Gtk.Label(label="Fullscreen")
-        fullscreen_label.set_halign(Gtk.Align.START)
-        fullscreen_desc = Gtk.Label(label="Run the game in fullscreen mode")
-        fullscreen_desc.add_css_class('settings-description')
-        fullscreen_desc.set_halign(Gtk.Align.START)
-        fullscreen_label_box.append(fullscreen_label)
-        fullscreen_label_box.append(fullscreen_desc)
-        fullscreen_item.append(fullscreen_label_box)
-        
-        switch_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-        switch_box.set_halign(Gtk.Align.END)
-        self.fullscreen_switch = Gtk.Switch()
-        self.fullscreen_switch.set_active(current_flags.get('fullscreen', False))
-        self.fullscreen_switch.set_valign(Gtk.Align.CENTER)
-        switch_box.append(self.fullscreen_switch)
-        fullscreen_item.append(switch_box)
-        
-        options_group.append(fullscreen_item)
-        
-        # Virtual Desktop toggle and resolution
-        virtual_desktop_main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-        
-        # Virtual Desktop toggle
-        virtual_desktop_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
-        virtual_desktop_box.add_css_class('settings-item')
-        
-        virtual_desktop_label_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
-        virtual_desktop_label_box.set_hexpand(True)
-        virtual_desktop_label = Gtk.Label(label="Virtual Desktop")
-        virtual_desktop_label.set_halign(Gtk.Align.START)
-        virtual_desktop_desc = Gtk.Label(label="Run the game in a virtual desktop")
-        virtual_desktop_desc.add_css_class('settings-description')
-        virtual_desktop_desc.set_halign(Gtk.Align.START)
-        virtual_desktop_label_box.append(virtual_desktop_label)
-        virtual_desktop_label_box.append(virtual_desktop_desc)
-        virtual_desktop_box.append(virtual_desktop_label_box)
-        
-        switch_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-        switch_box.set_halign(Gtk.Align.END)
-        self.virtual_desktop_switch = Gtk.Switch()
-        self.virtual_desktop_switch.set_active(current_flags.get('virtual_desktop', False))
-        self.virtual_desktop_switch.set_valign(Gtk.Align.CENTER)
-        switch_box.append(self.virtual_desktop_switch)
-        virtual_desktop_box.append(switch_box)
-        
-        virtual_desktop_main_box.append(virtual_desktop_box)
-        
-        # Virtual Desktop Resolution
-        resolution_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
-        resolution_box.add_css_class('settings-item')
-        resolution_box.set_margin_start(16)  # Indent resolution options
-        
-        # Width
-        width_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-        width_label = Gtk.Label(label="Width")
-        width_label.set_halign(Gtk.Align.START)
-        width_desc = Gtk.Label(label="Virtual desktop width")
-        width_desc.add_css_class('settings-description')
-        width_desc.set_halign(Gtk.Align.START)
-        width_box.append(width_label)
-        width_box.append(width_desc)
-        self.virtual_desktop_width = Gtk.Entry()
-        self.virtual_desktop_width.set_width_chars(6)
-        self.virtual_desktop_width.set_text(str(current_flags.get('virtual_desktop_width', 1920)))
-        self.virtual_desktop_width.add_css_class('settings-description')
-        width_box.append(self.virtual_desktop_width)
-        resolution_box.append(width_box)
-        
-        # Height
-        height_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-        height_label = Gtk.Label(label="Height")
-        height_label.set_halign(Gtk.Align.START)
-        height_desc = Gtk.Label(label="Virtual desktop height")
-        height_desc.add_css_class('settings-description')
-        height_desc.set_halign(Gtk.Align.START)
-        height_box.append(height_label)
-        height_box.append(height_desc)
-        self.virtual_desktop_height = Gtk.Entry()
-        self.virtual_desktop_height.set_width_chars(6)
-        self.virtual_desktop_height.set_text(str(current_flags.get('virtual_desktop_height', 1080)))
-        self.virtual_desktop_height.add_css_class('settings-description')
-        height_box.append(self.virtual_desktop_height)
-        resolution_box.append(height_box)
-        
-        virtual_desktop_main_box.append(resolution_box)
-        
-        # Update resolution fields sensitivity based on virtual desktop toggle
-        def update_resolution_sensitivity(switch, _):
-            resolution_box.set_sensitive(switch.get_active())
-        self.virtual_desktop_switch.connect('notify::active', update_resolution_sensitivity)
-        resolution_box.set_sensitive(self.virtual_desktop_switch.get_active())
-        
-        options_group.append(virtual_desktop_main_box)
-        
-        # Borderless toggle
-        borderless_item = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
-        borderless_item.add_css_class('settings-item')
-        
-        borderless_label_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
-        borderless_label_box.set_hexpand(True)
-        borderless_label = Gtk.Label(label="Borderless")
-        borderless_label.set_halign(Gtk.Align.START)
-        borderless_desc = Gtk.Label(label="Run the game in borderless mode")
-        borderless_desc.add_css_class('settings-description')
-        borderless_desc.set_halign(Gtk.Align.START)
-        borderless_label_box.append(borderless_label)
-        borderless_label_box.append(borderless_desc)
-        borderless_item.append(borderless_label_box)
-        
-        switch_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-        switch_box.set_halign(Gtk.Align.END)
-        self.borderless_switch = Gtk.Switch()
-        self.borderless_switch.set_active(current_flags.get('borderless', False))
-        self.borderless_switch.set_valign(Gtk.Align.CENTER)
-        switch_box.append(self.borderless_switch)
-        borderless_item.append(switch_box)
-        
-        options_group.append(borderless_item)
-        
         # Additional flags entry
         additional_item = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
         additional_item.add_css_class('settings-item')
@@ -778,11 +653,6 @@ class GameConfigWindow(Gtk.Dialog):
                             'flags': {
                                 'gamemode': self.gamemode_switch.get_active(),
                                 'mangohud': self.mangohud_switch.get_active(),
-                                'fullscreen': self.fullscreen_switch.get_active(),
-                                'virtual_desktop': self.virtual_desktop_switch.get_active(),
-                                'virtual_desktop_width': int(self.virtual_desktop_width.get_text() or 1920),
-                                'virtual_desktop_height': int(self.virtual_desktop_height.get_text() or 1080),
-                                'borderless': self.borderless_switch.get_active(),
                                 'additional_flags': self.additional_entry.get_text().strip(),
                                 'gameid': self.gameid_entry.get_text().strip()
                             }
@@ -799,11 +669,6 @@ class GameConfigWindow(Gtk.Dialog):
                         'flags': {
                             'gamemode': self.gamemode_switch.get_active(),
                             'mangohud': self.mangohud_switch.get_active(),
-                            'fullscreen': self.fullscreen_switch.get_active(),
-                            'virtual_desktop': self.virtual_desktop_switch.get_active(),
-                            'virtual_desktop_width': int(self.virtual_desktop_width.get_text() or 1920),
-                            'virtual_desktop_height': int(self.virtual_desktop_height.get_text() or 1080),
-                            'borderless': self.borderless_switch.get_active(),
                             'additional_flags': self.additional_entry.get_text().strip(),
                             'gameid': self.gameid_entry.get_text().strip()
                         }

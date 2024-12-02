@@ -7,10 +7,8 @@ A GTK-based game launcher for managing and running Windows games on Linux using 
 ## Features
 
 - Clean and modern GTK 4.0 interface
-- Support for Windows executables (32-bit and 64-bit)
 - Configurable launch options
 - GameMode and MangoHud integration
-- Virtual desktop support
 - Intuitive drag and drop interface:
   - Add games by dropping .exe files
   - Reorder games by dragging and dropping
@@ -65,6 +63,5 @@ The launcher can be configured through the settings dialog:
 ![Settings](docs/images/settings.png)
 
 Options include:
-- Display options (fullscreen, virtual desktop)
 - Performance options (GameMode, MangoHud)
 - Additional launch options
