@@ -9,14 +9,16 @@ class ConfigWindow(Gtk.Dialog):
             title="Settings",
             transient_for=parent,
             modal=True,
-            destroy_with_parent=True
+            destroy_with_parent=True,
+            default_width=600,  # Increased from default
+            default_height=400
         )
         
         self.config = config
         self.callback = callback
         
         # Set window size
-        self.set_default_size(500, -1)
+        # self.set_default_size(500, -1)
         
         # Add CSS styling
         css_provider = Gtk.CssProvider()

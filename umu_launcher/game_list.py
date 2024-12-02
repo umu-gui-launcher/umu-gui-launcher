@@ -4,10 +4,12 @@ import subprocess
 import gi
 gi.require_version('Gtk', '4.0')
 gi.require_version('GdkPixbuf', '2.0')
-from gi.repository import Gtk, GLib, Pango, GdkPixbuf
+gi.require_version('Gdk', '4.0')
+from gi.repository import Gtk, GLib, Pango, GdkPixbuf, Gio, Gdk, GObject
 from pathlib import Path
 from .icon_manager import IconManager
 from .log_window import LogWindow
+from .game_info import GameInfo
 import signal
 import requests
 import logging
@@ -18,32 +20,72 @@ class GameList(Gtk.Box):
     def __init__(self, app, display):
         super().__init__(orientation=Gtk.Orientation.VERTICAL)
         self.app = app
+        self.display = display
         self.icon_manager = IconManager(app.config.get('steamgriddb_api_key'))
         self.log_windows = {}  # Store log windows for each game
-        
+        self.is_grid = False  # Track current layout
+
+        # Enable drag and drop
+        drop_target = Gtk.DropTarget.new(Gio.File, Gdk.DragAction.COPY)
+        drop_target.connect('drop', self.on_drop)
+        drop_target.connect('enter', self.on_drag_enter)
+        drop_target.connect('leave', self.on_drag_leave)
+        self.add_controller(drop_target)
+
+        # Add drag and drop overlay
+        self.overlay = Gtk.Overlay()
+        self.append(self.overlay)
+
+        # Create drop indicator
+        self.drop_indicator = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        self.drop_indicator.set_valign(Gtk.Align.CENTER)
+        self.drop_indicator.set_halign(Gtk.Align.CENTER)
+        self.drop_indicator.set_visible(False)
+
+        # Add icon and label
+        icon = Gtk.Image.new_from_icon_name("list-add-symbolic")
+        icon.set_pixel_size(64)
+        icon.add_css_class("drop-icon")
+        self.drop_indicator.append(icon)
+
+        label = Gtk.Label(label="Drop games here to add them")
+        label.add_css_class("drop-label")
+        self.drop_indicator.append(label)
+
+        self.overlay.set_child(self.drop_indicator)
+
         # Create scrolled window
         scrolled = Gtk.ScrolledWindow()
         scrolled.set_vexpand(True)
+        self.overlay.set_child(scrolled)
+
+        # Create flow box for games
+        self.game_box = Gtk.FlowBox()
+        self.game_box.set_valign(Gtk.Align.START)
+        self.game_box.set_selection_mode(Gtk.SelectionMode.NONE)
+        self.game_box.set_homogeneous(True)
+        self.game_box.set_sort_func(self.sort_games)
+
+        # Enable reordering
+        self.game_box.set_activate_on_single_click(False)
         
-        # Create list box
-        self.list_box = Gtk.ListBox()
-        self.list_box.set_selection_mode(Gtk.SelectionMode.NONE)
-        self.list_box.add_css_class('game-list')
-        
-        scrolled.set_child(self.list_box)
-        self.append(scrolled)
-        
+        # Set initial list view
+        self.game_box.set_min_children_per_line(1)
+        self.game_box.set_max_children_per_line(1)
+
+        scrolled.set_child(self.game_box)
+
         # Add styles
         css_provider = Gtk.CssProvider()
         css_provider.load_from_data(b"""
             .game-list { 
-                padding: 12px;
+                padding: 8px;
                 background: transparent;
             }
             .game-row {
-                padding: 12px;
-                margin: 8px;
-                border-radius: 12px;
+                padding: 8px;
+                margin: 4px;
+                border-radius: 8px;
                 background: alpha(@theme_fg_color, 0.1);
                 transition: all 200ms ease;
             }
@@ -52,13 +94,28 @@ class GameList(Gtk.Box):
                 transform: translateY(-1px);
                 box-shadow: 0 2px 4px alpha(black, 0.2);
             }
+            .drop-icon {
+                color: @theme_fg_color;
+                opacity: 0.5;
+            }
+            .drop-label {
+                font-size: 18px;
+                font-weight: bold;
+                opacity: 0.7;
+                color: @theme_fg_color;
+            }
+            .drop-highlight {
+                border: 2px dashed alpha(@theme_fg_color, 0.3);
+                border-radius: 12px;
+                background: alpha(@theme_fg_color, 0.05);
+            }
             .game-icon {
                 border-radius: 8px;
                 background: alpha(@theme_fg_color, 0.1);
             }
             .game-title {
                 font-weight: bold;
-                font-size: 16px;
+                font-size: 14px;
                 color: @theme_fg_color;
             }
             .game-path {
@@ -67,7 +124,7 @@ class GameList(Gtk.Box):
                 color: @theme_fg_color;
             }
             .game-button {
-                padding: 8px 16px;
+                padding: 6px;
                 border-radius: 6px;
                 transition: all 200ms ease;
                 color: @theme_fg_color;
@@ -125,6 +182,14 @@ class GameList(Gtk.Box):
                 margin-bottom: 24px;
                 color: @theme_fg_color;
             }
+            .dragging {
+                opacity: 0.5;
+            }
+            .drop-target {
+                border: 2px dashed alpha(@theme_fg_color, 0.3);
+                border-radius: 12px;
+                background: alpha(@theme_fg_color, 0.05);
+            }
         """)
         Gtk.StyleContext.add_provider_for_display(
             display,
@@ -132,102 +197,179 @@ class GameList(Gtk.Box):
             Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
         )
     
-    def create_game_row(self, game):
-        """Create a row for a game in the list"""
-        row = Gtk.ListBoxRow()
-        row.add_css_class('game-row')
+    def create_game_widget(self, game):
+        """Create a widget for a game"""
+        # Create main box for game
+        game_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        game_box.add_css_class('game-row')
+        game_box.set_margin_start(4)
+        game_box.set_margin_end(4)
+        game_box.set_margin_top(4)
+        game_box.set_margin_bottom(4)
+
+        # Store the game reference
+        game_box.game = game
         
-        # Create box for game info
-        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=16)
-        box.set_margin_start(8)
-        box.set_margin_end(8)
-        
-        # Game icon
-        icon = Gtk.Picture()
-        icon.set_size_request(64, 64)
-        icon.add_css_class('game-icon')
-        if game.icon and os.path.exists(game.icon):
-            try:
-                pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_size(game.icon, 64, 64)
-                icon.set_pixbuf(pixbuf)
-            except Exception as e:
-                logger.error(f"Error loading icon: {e}")
-        box.append(icon)
-        
-        # Create a box for game info
-        info_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        info_box.set_hexpand(True)
-        
-        # Add game name
-        name_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        name_label = Gtk.Label(label=game.name)
-        name_label.set_halign(Gtk.Align.START)
-        name_label.add_css_class("game-title")
-        name_box.append(name_label)
-        
-        # Add running indicator if game is running
-        if game.process and game.process.poll() is None:
-            running_label = Gtk.Label(label="Running")
-            running_label.add_css_class("running-label")
-            name_box.append(running_label)
-        
-        info_box.append(name_box)
-        
-        # Add game path
-        path_label = Gtk.Label(label=game.file_path)
-        path_label.set_halign(Gtk.Align.START)
-        path_label.set_ellipsize(Pango.EllipsizeMode.MIDDLE)
-        path_label.add_css_class("game-path")
-        info_box.append(path_label)
-        
-        box.append(info_box)
-        
-        # Add buttons box
-        buttons_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        buttons_box.set_halign(Gtk.Align.END)
-        buttons_box.set_valign(Gtk.Align.CENTER)
-        
-        # Create launch/stop button
-        if game.process and game.process.poll() is None:
-            launch_button = Gtk.Button(label="Stop")
-            launch_button.add_css_class("game-button")
-            launch_button.add_css_class("destructive-action")
+        # Enable drag source
+        drag_source = Gtk.DragSource.new()
+        drag_source.set_actions(Gdk.DragAction.MOVE)
+        drag_source.connect('prepare', self.on_drag_prepare, game)
+        drag_source.connect('drag-begin', self.on_drag_begin, game_box)
+        drag_source.connect('drag-end', self.on_drag_end, game_box)
+        game_box.add_controller(drag_source)
+
+        # Enable drop target for reordering
+        drop_target = Gtk.DropTarget.new(GObject.TYPE_PYOBJECT, Gdk.DragAction.MOVE)
+        drop_target.connect('drop', self.on_reorder_drop, game)
+        drop_target.connect('enter', self.on_reorder_enter, game_box)
+        drop_target.connect('leave', self.on_reorder_leave, game_box)
+        game_box.add_controller(drop_target)
+
+        if self.is_grid:
+            # Grid mode: Vertical layout
+            left_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+            left_box.set_hexpand(True)
+            
+            # Add game icon
+            icon = Gtk.Image()
+            icon.add_css_class('game-icon')
+            icon.set_pixel_size(96)
+            
+            # Load icon
+            if game.icon and os.path.exists(game.icon):
+                try:
+                    pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_size(game.icon, 96, 96)
+                    icon.set_from_pixbuf(pixbuf)
+                except Exception as e:
+                    logger.error(f"Error loading icon: {e}")
+                    icon.set_from_icon_name("application-x-executable")
+            else:
+                icon.set_from_icon_name("application-x-executable")
+            
+            icon_box = Gtk.Box()
+            icon_box.set_halign(Gtk.Align.CENTER)
+            icon_box.append(icon)
+            left_box.append(icon_box)
+            
+            # Add game name
+            name_label = Gtk.Label(label=game.name)
+            name_label.set_wrap(True)
+            name_label.set_wrap_mode(Pango.WrapMode.WORD_CHAR)
+            name_label.set_max_width_chars(20)
+            name_label.set_justify(Gtk.Justification.CENTER)
+            name_label.set_halign(Gtk.Align.CENTER)
+            name_label.add_css_class('game-title')
+            left_box.append(name_label)
         else:
-            launch_button = Gtk.Button(label="Launch")
-            launch_button.add_css_class("game-button")
-            launch_button.add_css_class("suggested-action")
+            # List mode: Original horizontal layout
+            left_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+            left_box.set_hexpand(True)
+            
+            # Create info box for icon and name
+            info_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=16)
+            
+            # Add game icon
+            icon = Gtk.Image()
+            icon.add_css_class('game-icon')
+            icon.set_pixel_size(64)
+            
+            # Load icon
+            if game.icon and os.path.exists(game.icon):
+                try:
+                    pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_size(game.icon, 64, 64)
+                    icon.set_from_pixbuf(pixbuf)
+                except Exception as e:
+                    logger.error(f"Error loading icon: {e}")
+                    icon.set_from_icon_name("application-x-executable")
+            else:
+                icon.set_from_icon_name("application-x-executable")
+            
+            info_box.append(icon)
+            
+            # Create name and path box
+            text_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+            
+            # Add game name
+            name_label = Gtk.Label(label=game.name)
+            name_label.set_halign(Gtk.Align.START)
+            name_label.add_css_class('game-title')
+            text_box.append(name_label)
+            
+            # Add game path
+            path_label = Gtk.Label(label=game.file_path)
+            path_label.set_halign(Gtk.Align.START)
+            path_label.set_ellipsize(Pango.EllipsizeMode.MIDDLE)
+            path_label.add_css_class("game-path")
+            text_box.append(path_label)
+            
+            info_box.append(text_box)
+            left_box.append(info_box)
         
-        launch_button.connect('clicked', self.on_launch_clicked, game)
-        buttons_box.append(launch_button)
+        # Create box for buttons
+        button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        button_box.set_halign(Gtk.Align.CENTER if self.is_grid else Gtk.Align.END)
         
-        # Create configure button
-        config_button = Gtk.Button(label="Configure")
-        config_button.add_css_class("game-button")
-        config_button.add_css_class("configure")
-        config_button.connect('clicked', self.on_configure_clicked, game)
-        buttons_box.append(config_button)
+        # Add play button
+        play_button = Gtk.Button()
+        if game.process and game.process.poll() is None:
+            play_button.set_icon_name('media-playback-stop-symbolic')
+            play_button.set_tooltip_text('Stop Game')
+            play_button.add_css_class('destructive-action')
+        else:
+            play_button.set_icon_name('media-playback-start-symbolic')
+            play_button.set_tooltip_text('Play Game')
+            play_button.add_css_class('suggested-action')
+        play_button.add_css_class('game-button')
+        play_button.connect('clicked', lambda b: self.on_launch_clicked(b, game))
+        button_box.append(play_button)
         
-        # Create remove button
-        remove_button = Gtk.Button(label="Remove")
-        remove_button.add_css_class("game-button")
-        remove_button.add_css_class("destructive-action")
-        remove_button.connect('clicked', self.on_remove_clicked, game)
-        buttons_box.append(remove_button)
+        # Add configure button
+        config_button = Gtk.Button()
+        config_button.set_icon_name('emblem-system-symbolic')
+        config_button.add_css_class('game-button')
+        config_button.add_css_class('configure')
+        config_button.set_tooltip_text('Game Settings')
+        config_button.connect('clicked', lambda b: self.on_configure_clicked(b, game))
+        button_box.append(config_button)
         
-        box.append(buttons_box)
-        row.set_child(box)
+        # Add remove button
+        remove_button = Gtk.Button()
+        remove_button.set_icon_name('user-trash-symbolic')
+        remove_button.add_css_class('game-button')
+        remove_button.add_css_class('destructive-action')
+        remove_button.set_tooltip_text('Remove Game')
+        remove_button.connect('clicked', lambda b: self.on_remove_clicked(b, game))
+        button_box.append(remove_button)
         
-        return row
+        # Add boxes to main box based on layout
+        if self.is_grid:
+            # Grid mode: Vertical layout with buttons under icon/name
+            left_box.append(button_box)
+            game_box.append(left_box)
+        else:
+            # List mode: Horizontal layout with buttons on right
+            game_box.append(left_box)
+            button_box.set_valign(Gtk.Align.CENTER)
+            game_box.append(button_box)
         
+        return game_box
+
     def refresh(self):
         """Refresh the game list"""
-        # Remove all current rows
+        # Remove all existing children
         while True:
-            row = self.list_box.get_first_child()
-            if row is None:
+            child = self.game_box.get_first_child()
+            if child is None:
                 break
-            self.list_box.remove(row)
+            self.game_box.remove(child)
         
+        # Add games back with current layout
+        for game in self.app.games:
+            game_widget = self.create_game_widget(game)
+            flow_child = Gtk.FlowBoxChild()
+            flow_child.set_child(game_widget)
+            self.game_box.append(flow_child)
+            
         # Add empty state if no games
         if not self.app.games:
             empty_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
@@ -258,15 +400,10 @@ class GameList(Gtk.Box):
             add_button.connect('clicked', lambda b: self.app.on_add_game_clicked(None))
             empty_box.append(add_button)
             
-            row = Gtk.ListBoxRow()
-            row.set_child(empty_box)
-            self.list_box.append(row)
-        else:
-            # Add rows for each game
-            for game in self.app.games:
-                row = self.create_game_row(game)
-                self.list_box.append(row)
-            
+            flow_child = Gtk.FlowBoxChild()
+            flow_child.set_child(empty_box)
+            self.game_box.append(flow_child)
+    
     def check_game_status(self, game):
         """Check if a game is still running and update UI accordingly"""
         try:
@@ -394,9 +531,17 @@ class GameList(Gtk.Box):
     def on_launch_clicked(self, button, game):
         if game.process and game.process.poll() is None:
             # Game is running, stop it
+            button.set_icon_name('media-playback-start-symbolic')
+            button.set_tooltip_text('Play Game')
+            button.remove_css_class('destructive-action')
+            button.add_css_class('suggested-action')
             self.stop_game(game)
         else:
             # Game is not running, launch it
+            button.set_icon_name('media-playback-stop-symbolic')
+            button.set_tooltip_text('Stop Game')
+            button.remove_css_class('suggested-action')
+            button.add_css_class('destructive-action')
             self.launch_game(game)
 
     def launch_game(self, game):
@@ -580,89 +725,115 @@ class GameList(Gtk.Box):
         config_window.set_transient_for(self.get_root())
         config_window.present()
 
-    def show_icon_picker(self, game_info):
-        """Show icon picker dialog for a game"""
-        dialog = Gtk.Dialog(
-            title=f"Choose Icon for {game_info.name}",
-            transient_for=self.get_root(),
-            modal=True
-        )
-        dialog.set_default_size(400, 500)
+    def toggle_layout(self):
+        """Toggle between list and grid layout"""
+        self.is_grid = not self.is_grid
         
-        # Create icon grid
-        scrolled = Gtk.ScrolledWindow()
-        scrolled.set_vexpand(True)
-        
-        grid = Gtk.FlowBox()
-        grid.set_valign(Gtk.Align.START)
-        grid.set_max_children_per_line(5)
-        grid.set_selection_mode(Gtk.SelectionMode.SINGLE)
-        grid.set_activate_on_single_click(True)
-        
-        # Search for icons
-        icons = self.icon_manager.search_steamgrid(game_info.name, dialog)
-        
-        for icon in icons:
-            icon_url = icon.get('url')
-            if not icon_url:
-                continue
-                
-            # Create icon preview
-            image = Gtk.Image()
-            image.set_size_request(64, 64)
+        if self.is_grid:
+            # Grid view: 3 items per line
+            self.game_box.set_min_children_per_line(3)
+            self.game_box.set_max_children_per_line(3)
+        else:
+            # List view: 1 item per line
+            self.game_box.set_min_children_per_line(1)
+            self.game_box.set_max_children_per_line(1)
             
-            # Download and show preview
-            try:
-                response = requests.get(icon_url)
-                loader = GdkPixbuf.PixbufLoader()
-                loader.write(response.content)
-                loader.close()
-                pixbuf = loader.get_pixbuf()
-                scaled_pixbuf = pixbuf.scale_simple(64, 64, GdkPixbuf.InterpType.BILINEAR)
-                image.set_from_pixbuf(scaled_pixbuf)
-            except Exception as e:
-                logger.error(f"Error loading preview: {e}")
-                continue
-            
-            # Store URL with the image
-            image.url = icon_url
-            grid.append(image)
+        # Force re-layout
+        self.refresh()
+        return self.is_grid
+
+    def on_drop(self, drop_target, value, x, y):
+        """Handle file drops"""
+        if not isinstance(value, Gio.File):
+            return False
+
+        file_path = value.get_path()
+        if not file_path:
+            return False
+
+        # Check if it's a Windows executable
+        if not file_path.lower().endswith('.exe'):
+            self.app.show_error_dialog("Only Windows .exe files can be added")
+            return False
+
+        # Add the game
+        game_info = GameInfo(file_path)
+        self.app.games.append(game_info)
         
-        scrolled.set_child(grid)
+        # Add to config
+        if 'games' not in self.app.config:
+            self.app.config['games'] = []
+        self.app.config['games'].append({'path': file_path})
+        self.app.save_config()
+
+        # Refresh the list
+        self.refresh()
+        return True
+
+    def on_drag_enter(self, drop_target, x, y):
+        """Show drop indicator when dragging over"""
+        self.drop_indicator.set_visible(True)
+        self.add_css_class('drop-highlight')
+        return Gdk.DragAction.COPY
+
+    def on_drag_leave(self, drop_target):
+        """Hide drop indicator when dragging out"""
+        self.drop_indicator.set_visible(False)
+        self.remove_css_class('drop-highlight')
+
+    def on_drag_prepare(self, drag_source, x, y, game):
+        """Prepare the drag operation"""
+        return Gdk.ContentProvider.new_for_value(game)
+
+    def on_drag_begin(self, drag_source, drag, game_box):
+        """Handle start of drag"""
+        game_box.add_css_class('dragging')
         
-        # Add buttons
-        dialog.add_button("Cancel", Gtk.ResponseType.CANCEL)
-        dialog.add_button("Select", Gtk.ResponseType.OK)
-        
-        # Add content
-        content_area = dialog.get_content_area()
-        content_area.append(scrolled)
-        
-        def on_icon_activated(grid, child):
-            grid.select_child(child)
-        
-        grid.connect("child-activated", on_icon_activated)
-        
-        # Show dialog
-        dialog.present()
-        response = dialog.run()
-        
-        if response == Gtk.ResponseType.OK:
-            selected = grid.get_selected_children()
-            if selected:
-                image = selected[0].get_child()
-                icon_url = image.url
-                if game_info.set_icon(icon_url):
-                    self.refresh_game(game_info)
-        
-        dialog.destroy()
-        
-    def refresh_game(self, game_info):
-        """Refresh a game's display in the list"""
-        for row in self.list_box:
-            if row.game == game_info:
-                # Update icon
-                if game_info.icon and os.path.exists(game_info.icon):
-                    pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_size(game_info.icon, 64, 64)
-                    row.get_first_child().get_first_child().set_from_pixbuf(pixbuf)
-                break
+    def on_drag_end(self, drag_source, drag, drag_cancel, game_box):
+        """Handle end of drag"""
+        game_box.remove_css_class('dragging')
+
+    def on_reorder_enter(self, drop_target, x, y, game_box):
+        """Handle drag enter for reordering"""
+        game_box.add_css_class('drop-target')
+        return Gdk.DragAction.MOVE
+
+    def on_reorder_leave(self, drop_target, game_box):
+        """Handle drag leave for reordering"""
+        game_box.remove_css_class('drop-target')
+
+    def on_reorder_drop(self, drop_target, value, x, y, target_game):
+        """Handle drop for reordering"""
+        if not isinstance(value, GameInfo):
+            return False
+
+        source_game = value
+        if source_game == target_game:
+            return False
+
+        # Get the positions
+        source_idx = self.app.games.index(source_game)
+        target_idx = self.app.games.index(target_game)
+
+        # Reorder in the games list
+        self.app.games.pop(source_idx)
+        self.app.games.insert(target_idx, source_game)
+
+        # Update config
+        if 'games' in self.app.config:
+            source_config = self.app.config['games'][source_idx]
+            self.app.config['games'].pop(source_idx)
+            self.app.config['games'].insert(target_idx, source_config)
+            self.app.save_config()
+
+        # Refresh the list
+        self.refresh()
+        return True
+
+    def sort_games(self, child1, child2, user_data=None):
+        """Sort function for the flow box to maintain order"""
+        game1 = child1.get_child().game
+        game2 = child2.get_child().game
+        idx1 = self.app.games.index(game1)
+        idx2 = self.app.games.index(game2)
+        return idx1 - idx2

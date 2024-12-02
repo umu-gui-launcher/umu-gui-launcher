@@ -23,6 +23,8 @@ class UmuRunLauncher(Gtk.Application):
             flags=Gio.ApplicationFlags.FLAGS_NONE
         )
         
+        self.version = "1.0.0"  # Add version number
+        
         self.window = None
         self.game_list = None
         self.games = []
@@ -109,6 +111,27 @@ class UmuRunLauncher(Gtk.Application):
 
     def do_startup(self):
         Gtk.Application.do_startup(self)
+        
+        # Add actions
+        action = Gio.SimpleAction.new("quit", None)
+        action.connect("activate", self.on_quit)
+        self.add_action(action)
+        
+        action = Gio.SimpleAction.new("add_game", None)
+        action.connect("activate", lambda *_: self.on_add_game_clicked(None))
+        self.add_action(action)
+        
+        action = Gio.SimpleAction.new("settings", None)
+        action.connect("activate", lambda *_: self.on_settings_clicked(None))
+        self.add_action(action)
+        
+        action = Gio.SimpleAction.new("toggle_layout", None)
+        action.connect("activate", self.on_toggle_layout)
+        self.add_action(action)
+        
+        action = Gio.SimpleAction.new("about", None)
+        action.connect("activate", self.on_about_clicked)
+        self.add_action(action)
 
     def do_activate(self):
         logger.debug("Creating main window")
@@ -174,57 +197,8 @@ class UmuRunLauncher(Gtk.Application):
             )
 
             # Create header bar
-            header = Gtk.HeaderBar()
-            header.add_css_class('header-bar')
-            
-            # Create box for left-side buttons
-            left_button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-            
-            # Add log window toggle button
-            self.log_button = Gtk.Button()
-            self.log_button.set_icon_name("utilities-terminal-symbolic")
-            self.log_button.set_tooltip_text("Toggle Log Window")
-            self.log_button.add_css_class('header-button')
-            self.log_button.connect('clicked', self.on_log_button_clicked)
-            left_button_box.append(self.log_button)
-            
-            header.pack_start(left_button_box)
-            
-            # Add title
-            title_label = Gtk.Label(label="Umu-Run Games Launcher")
-            title_label.add_css_class('header-title')
-            header.set_title_widget(title_label)
-            
-            # Create box for right-side buttons
-            button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-            
-            # Add Game button
-            add_button = Gtk.Button()
-            add_button.set_icon_name("list-add-symbolic")
-            add_button.set_tooltip_text("Add Game")
-            add_button.add_css_class('header-button')
-            add_button.connect('clicked', self.on_add_game_clicked)
-            button_box.append(add_button)
-            
-            # Kill All Games button
-            kill_button = Gtk.Button()
-            kill_button.set_icon_name("process-stop-symbolic")
-            kill_button.add_css_class('header-button')
-            kill_button.add_css_class('error')
-            kill_button.set_tooltip_text("Kill All Running Games")
-            kill_button.connect('clicked', self.kill_all_games)
-            button_box.append(kill_button)
-            
-            # Settings button
-            settings_button = Gtk.Button()
-            settings_button.set_icon_name("emblem-system-symbolic")
-            settings_button.set_tooltip_text("Settings")
-            settings_button.add_css_class('header-button')
-            settings_button.connect('clicked', self.on_settings_clicked)
-            button_box.append(settings_button)
-            
-            header.pack_end(button_box)
-            self.window.set_titlebar(header)
+            self.create_header_bar()
+            self.window.set_titlebar(self.header)
 
             # Create main content box
             main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
@@ -240,6 +214,77 @@ class UmuRunLauncher(Gtk.Application):
 
         # Present the window
         self.window.present()
+
+    def create_header_bar(self):
+        """Create the header bar with menu"""
+        self.header = Gtk.HeaderBar()
+        
+        # Create menu button
+        menu_button = Gtk.MenuButton()
+        menu_button.set_icon_name("open-menu-symbolic")
+        
+        # Create menu model with only About option
+        menu = Gio.Menu()
+        section = Gio.Menu()
+        section.append("About", "app.about")
+        menu.append_section(None, section)
+        
+        # Create popover
+        popover = Gtk.PopoverMenu()
+        popover.set_menu_model(menu)
+        menu_button.set_popover(popover)
+        
+        # Add menu button to header
+        self.header.pack_end(menu_button)
+        
+        # Add game button
+        add_button = Gtk.Button()
+        add_button.set_icon_name("list-add-symbolic")
+        add_button.connect("clicked", self.on_add_game_clicked)
+        self.header.pack_start(add_button)
+        
+        # Add log window toggle button
+        self.log_button = Gtk.Button()
+        self.log_button.set_icon_name("utilities-terminal-symbolic")
+        self.log_button.set_tooltip_text("Toggle Log Window")
+        self.log_button.add_css_class('header-button')
+        self.log_button.connect('clicked', self.on_log_button_clicked)
+        self.header.pack_start(self.log_button)
+        
+        # Add view toggle button
+        self.view_button = Gtk.Button()
+        self.view_button.set_icon_name("view-grid-symbolic")
+        self.view_button.set_tooltip_text("Toggle View (List/Grid)")
+        self.view_button.add_css_class('header-button')
+        self.view_button.connect('clicked', self.on_view_button_clicked)
+        self.header.pack_start(self.view_button)
+        
+        # Add title
+        title_label = Gtk.Label(label="Umu-Run Games Launcher")
+        title_label.add_css_class('header-title')
+        self.header.set_title_widget(title_label)
+        
+        # Create box for right-side buttons
+        button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        
+        # Kill All Games button
+        kill_button = Gtk.Button()
+        kill_button.set_icon_name("process-stop-symbolic")
+        kill_button.add_css_class('header-button')
+        kill_button.add_css_class('error')
+        kill_button.set_tooltip_text("Kill All Running Games")
+        kill_button.connect('clicked', self.kill_all_games)
+        button_box.append(kill_button)
+        
+        # Settings button
+        settings_button = Gtk.Button()
+        settings_button.set_icon_name("emblem-system-symbolic")
+        settings_button.set_tooltip_text("Settings")
+        settings_button.add_css_class('header-button')
+        settings_button.connect('clicked', self.on_settings_clicked)
+        button_box.append(settings_button)
+        
+        self.header.pack_end(button_box)
 
     def load_config(self):
         """Load configuration from config.json"""
@@ -592,3 +637,38 @@ class UmuRunLauncher(Gtk.Application):
         else:
             self.shared_log_window.show_with_animation()
             self.log_button.add_css_class('suggested-action')
+
+    def on_view_button_clicked(self, button):
+        """Handle view toggle button click"""
+        if hasattr(self, 'game_list'):
+            is_grid = self.game_list.toggle_layout()
+            # Update button icon based on next view
+            if is_grid:
+                button.set_icon_name("view-list-symbolic")
+                button.set_tooltip_text("Switch to List View")
+            else:
+                button.set_icon_name("view-grid-symbolic")
+                button.set_tooltip_text("Switch to Grid View")
+
+    def on_toggle_layout(self, action, param):
+        """Toggle between vertical and horizontal layout"""
+        if hasattr(self, 'game_list'):
+            self.game_list.toggle_layout()
+
+    def on_about_clicked(self, action, param):
+        """Show the about dialog"""
+        dialog = Gtk.AboutDialog()
+        dialog.set_transient_for(self.window)
+        dialog.set_modal(True)
+        
+        dialog.set_program_name("UMU Launcher")
+        dialog.set_version(self.version)
+        dialog.set_authors(["Hamza"])
+        dialog.set_comments("A game launcher for running Windows games on Linux")
+        dialog.set_logo_icon_name("applications-games")
+        
+        dialog.present()
+
+    def on_quit(self, action, param):
+        """Quit the application"""
+        self.quit()
