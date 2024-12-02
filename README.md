@@ -2,6 +2,8 @@
 
 A GTK-based game launcher for managing and running Windows games on Linux using umu-run.
 
+![Main Window](docs/images/main-window.png)
+
 ## Features
 
 - Clean and modern GTK 4.0 interface
@@ -12,6 +14,14 @@ A GTK-based game launcher for managing and running Windows games on Linux using 
 - Intuitive drag and drop interface:
   - Add games by dropping .exe files
   - Reorder games by dragging and dropping
+
+## Game Management
+
+![Game List](docs/images/game-list.png)
+
+### Game Configuration
+
+![Game Configuration](docs/images/game-config.png)
 
 ## Requirements
 
@@ -50,7 +60,11 @@ python3 main.py --launch /path/to/game.exe
 
 ## Configuration
 
-The launcher can be configured through the settings dialog (gear icon). Options include:
+The launcher can be configured through the settings dialog:
+
+![Settings](docs/images/settings.png)
+
+Options include:
 - Display options (fullscreen, virtual desktop)
 - Performance options (GameMode, MangoHud)
 - Additional launch options
