@@ -174,10 +174,11 @@ class GameConfigWindow(Gtk.Dialog):
         options_group.append(options_title)
         
         # Get current flags
-        current_flags = {}
+        current_flags = self.app.config.get('flags', {}).copy()  # Start with global flags as defaults
         for game_config in self.get_transient_for().get_application().config['games']:
             if isinstance(game_config, dict) and game_config.get('path') == game.file_path:
-                current_flags = game_config.get('flags', {})
+                game_flags = game_config.get('flags', {})
+                current_flags.update(game_flags)  # Override with game-specific flags if they exist
                 break
         
         # Gamemode toggle

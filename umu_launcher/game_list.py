@@ -749,10 +749,18 @@ class GameList(Gtk.Box):
         game_info = GameInfo(file_path)
         self.app.games.append(game_info)
         
-        # Add to config
+        # Add to config with default flags
         if 'games' not in self.app.config:
             self.app.config['games'] = []
-        self.app.config['games'].append({'path': file_path})
+        
+        # Get global flags as defaults
+        default_flags = self.app.config.get('flags', {}).copy()
+        
+        # Add the game with default flags
+        self.app.config['games'].append({
+            'path': file_path,
+            'flags': default_flags
+        })
         self.app.save_config()
 
         # Refresh the list
