@@ -328,7 +328,13 @@ class ConfigWindow(Gtk.Dialog):
                 self.config['flags'][flag_name] = switch.get_active()
             
             # Update API key
-            self.config['steamgriddb_api_key'] = self.api_key_entry.get_text().strip()
+            new_api_key = self.api_key_entry.get_text().strip()
+            if new_api_key != self.config.get('steamgriddb_api_key', ''):
+                self.config['steamgriddb_api_key'] = new_api_key
+                # Get app instance and update icon manager's API key
+                app = self.get_transient_for().get_application()
+                if app.game_list and app.game_list.icon_manager:
+                    app.game_list.icon_manager.set_api_key(new_api_key)
             
             # Update WINEPREFIX
             self.config['flags']['wineprefix'] = self.wineprefix_entry.get_text().strip()
@@ -359,5 +365,9 @@ class ConfigWindow(Gtk.Dialog):
             # Call the callback with updated config
             if self.callback:
                 self.callback(self.config)
+            
+            # Save config immediately
+            app = self.get_transient_for().get_application()
+            app.save_config()
         
         self.destroy()

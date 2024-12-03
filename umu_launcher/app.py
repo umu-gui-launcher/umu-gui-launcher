@@ -45,7 +45,8 @@ class UmuRunLauncher(Gtk.Application):
                 'store': 'egs',  # Default store (egs for Epic Games Store)
                 'gameid': 'umu-dauntless'  # Default GAMEID for umu-run
             },
-            'steamgriddb_api_key': ''  # API key should be set by user
+            'steamgriddb_api_key': '',  # API key should be set by user
+            'is_grid_view': False  # Default to list view
         }
         
         # Load config and setup monitor
@@ -307,6 +308,8 @@ class UmuRunLauncher(Gtk.Application):
                                 self.config['flags'][key] = value
                     if 'steamgriddb_api_key' in loaded_config:
                         self.config['steamgriddb_api_key'] = loaded_config['steamgriddb_api_key']
+                    if 'is_grid_view' in loaded_config:
+                        self.config['is_grid_view'] = loaded_config['is_grid_view']
             
             # Save config to ensure it exists and has all default values
             self.save_config()

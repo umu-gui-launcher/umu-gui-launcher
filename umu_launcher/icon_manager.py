@@ -181,3 +181,13 @@ class IconManager:
                 os.makedirs(self.cache_dir, exist_ok=True)
         except Exception as e:
             print(f"Error clearing icon cache: {e}")
+
+    def set_api_key(self, api_key):
+        """Update the SteamGridDB API key"""
+        if api_key:
+            if self.steamgrid is None:
+                self.steamgrid = SteamGridDB(api_key)
+            else:
+                self.steamgrid.api_key = api_key
+        else:
+            self.steamgrid = None

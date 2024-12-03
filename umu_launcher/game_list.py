@@ -23,7 +23,7 @@ class GameList(Gtk.Box):
         self.display = display
         self.icon_manager = IconManager(app.config.get('steamgriddb_api_key'))
         self.log_windows = {}  # Store log windows for each game
-        self.is_grid = False  # Track current layout
+        self.is_grid = app.config.get('is_grid_view', False)  # Load grid state from config
 
         # Enable drag and drop
         drop_target = Gtk.DropTarget.new(Gio.File, Gdk.DragAction.COPY)
@@ -69,9 +69,13 @@ class GameList(Gtk.Box):
         # Enable reordering
         self.game_box.set_activate_on_single_click(False)
         
-        # Set initial list view
-        self.game_box.set_min_children_per_line(1)
-        self.game_box.set_max_children_per_line(1)
+        # Set initial view based on config
+        if self.is_grid:
+            self.game_box.set_min_children_per_line(3)
+            self.game_box.set_max_children_per_line(3)
+        else:
+            self.game_box.set_min_children_per_line(1)
+            self.game_box.set_max_children_per_line(1)
 
         scrolled.set_child(self.game_box)
 
@@ -726,6 +730,10 @@ class GameList(Gtk.Box):
             # List view: 1 item per line
             self.game_box.set_min_children_per_line(1)
             self.game_box.set_max_children_per_line(1)
+            
+        # Save grid state to config
+        self.app.config['is_grid_view'] = self.is_grid
+        self.app.save_config()
             
         # Force re-layout
         self.refresh()
