@@ -2,8 +2,29 @@ import gi
 gi.require_version('Gtk', '4.0')
 from gi.repository import Gtk, GLib, Gdk, Gio
 import os
+import re
 
 class LogWindow(Gtk.Window):
+    # ANSI color code to GTK color mapping
+    ANSI_COLORS = {
+        '30': '#000000',  # Black
+        '31': '#C62828',  # Red
+        '32': '#2E7D32',  # Green
+        '33': '#F57C00',  # Yellow
+        '34': '#1976D2',  # Blue
+        '35': '#7B1FA2',  # Magenta
+        '36': '#0097A7',  # Cyan
+        '37': '#757575',  # White
+        '90': '#616161',  # Bright Black (Gray)
+        '91': '#EF5350',  # Bright Red
+        '92': '#4CAF50',  # Bright Green
+        '93': '#FFA726',  # Bright Yellow
+        '94': '#42A5F5',  # Bright Blue
+        '95': '#AB47BC',  # Bright Magenta
+        '96': '#26C6DA',  # Bright Cyan
+        '97': '#FFFFFF',  # Bright White
+    }
+
     def __init__(self, parent, width=600, height=300, position='bottom'):
         """
         Initialize the log window
@@ -71,6 +92,20 @@ class LogWindow(Gtk.Window):
         self.text_view.set_monospace(True)
         self.text_buffer = self.text_view.get_buffer()
         
+        # Create text tags for different log levels and ANSI colors
+        self.text_buffer.create_tag("info", foreground="#2E7D32")  # Dark green
+        self.text_buffer.create_tag("warning", foreground="#F57C00")  # Orange
+        self.text_buffer.create_tag("error", foreground="#C62828")  # Dark red
+        self.text_buffer.create_tag("debug", foreground="#1976D2")  # Blue
+        self.text_buffer.create_tag("timestamp", foreground="#616161", scale=0.9)  # Gray, slightly smaller
+        
+        # Create tags for ANSI colors
+        for code, color in self.ANSI_COLORS.items():
+            self.text_buffer.create_tag(f"ansi_{code}", foreground=color)
+        
+        # Create tag for bold text
+        self.text_buffer.create_tag("bold", weight=700)  # Pango.Weight.BOLD equivalent
+        
         scrolled.set_child(self.text_view)
         self.main_box.append(scrolled)
         
@@ -92,6 +127,19 @@ class LogWindow(Gtk.Window):
                     font-weight: bold;
                     font-size: 16px;
                 }
+                textview {
+                    font-family: "JetBrains Mono", monospace;
+                    padding: 8px;
+                    background-color: @theme_base_color;
+                    color: @theme_fg_color;
+                }
+                textview text {
+                    background-color: @theme_base_color;
+                }
+                scrolledwindow {
+                    border: 1px solid alpha(@borders, 0.5);
+                    border-radius: 6px;
+                }
             """ % (border_radius, border_radius)
         elif position == 'left':
             border_css = """
@@ -107,6 +155,19 @@ class LogWindow(Gtk.Window):
                     font-weight: bold;
                     font-size: 16px;
                 }
+                textview {
+                    font-family: "JetBrains Mono", monospace;
+                    padding: 8px;
+                    background-color: @theme_base_color;
+                    color: @theme_fg_color;
+                }
+                textview text {
+                    background-color: @theme_base_color;
+                }
+                scrolledwindow {
+                    border: 1px solid alpha(@borders, 0.5);
+                    border-radius: 6px;
+                }
             """ % (border_radius, border_radius)
         else:  # bottom
             border_css = """
@@ -121,6 +182,19 @@ class LogWindow(Gtk.Window):
                 .title {
                     font-weight: bold;
                     font-size: 16px;
+                }
+                textview {
+                    font-family: "JetBrains Mono", monospace;
+                    padding: 8px;
+                    background-color: @theme_base_color;
+                    color: @theme_fg_color;
+                }
+                textview text {
+                    background-color: @theme_base_color;
+                }
+                scrolledwindow {
+                    border: 1px solid alpha(@borders, 0.5);
+                    border-radius: 6px;
                 }
             """ % (border_radius, border_radius)
         
@@ -233,10 +307,83 @@ class LogWindow(Gtk.Window):
         """Handle minimize button click"""
         self.hide_with_animation()
     
-    def append_text(self, text):
-        """Append text to the log"""
+    def parse_ansi_codes(self, text):
+        """Parse ANSI escape codes and return a list of (text, tags) tuples"""
+        result = []
+        current_tags = set()
+        
+        # Regular expression for ANSI escape codes, including escape character
+        ansi_pattern = re.compile(r'(?:\x1B|\[)(?:\[[0-9;]*[@-~]|\[.*?[@-~]|[0-9;]*[mK])')
+        
+        # Split the text into parts
+        last_end = 0
+        for match in ansi_pattern.finditer(text):
+            # Add any text before the ANSI code
+            if match.start() > last_end:
+                result.append((text[last_end:match.start()], list(current_tags)))
+            
+            # Process the ANSI code
+            code = match.group()
+            if 'm' in code:  # Color/style code
+                codes = code.strip('[]m').split(';')
+                for c in codes:
+                    if c == '0' or not c:  # Reset
+                        current_tags.clear()
+                    elif c == '1':  # Bold
+                        current_tags.add('bold')
+                    elif c in self.ANSI_COLORS:  # Color code
+                        # Remove any existing color tags
+                        current_tags = {tag for tag in current_tags if not tag.startswith('ansi_')}
+                        current_tags.add(f'ansi_{c}')
+            
+            last_end = match.end()
+        
+        # Add any remaining text
+        if last_end < len(text):
+            result.append((text[last_end:], list(current_tags)))
+        
+        return result
+
+    def append_text(self, text, level="info"):
+        """
+        Append text to the log with specified level
+        
+        Args:
+            text: Text to append
+            level: Log level (info, warning, error, debug)
+        """
         end_iter = self.text_buffer.get_end_iter()
-        self.text_buffer.insert(end_iter, text)
+        
+        # Clean the text of any null characters or other problematic control chars
+        text = ''.join(char for char in text if char >= ' ' or char in '\n\r\t')
+        
+        # Extract timestamp if present in the format [HH:MM:SS]
+        timestamp_match = re.match(r'^\[(\d{2}:\d{2}:\d{2})\]\s*', text)
+        if timestamp_match:
+            timestamp = timestamp_match.group(0)
+            text = text[len(timestamp):]
+            self.text_buffer.insert_with_tags_by_name(end_iter, timestamp, "timestamp")
+        else:
+            # Add current timestamp if none present
+            timestamp = GLib.DateTime.new_now_local().format("[%H:%M:%S] ")
+            self.text_buffer.insert_with_tags_by_name(end_iter, timestamp, "timestamp")
+        
+        # Parse and apply ANSI color codes
+        parts = self.parse_ansi_codes(text)
+        for text_part, tags in parts:
+            if tags:
+                self.text_buffer.insert_with_tags_by_name(end_iter, text_part, *tags)
+            else:
+                # If no ANSI tags, use the log level tag
+                if level in ["info", "warning", "error", "debug"]:
+                    self.text_buffer.insert_with_tags_by_name(end_iter, text_part, level)
+                else:
+                    self.text_buffer.insert(end_iter, text_part)
+        
+        # Add newline if not present
+        if not text.endswith("\n"):
+            self.text_buffer.insert(end_iter, "\n")
+        
         # Scroll to bottom
         mark = self.text_buffer.create_mark(None, end_iter, False)
         self.text_view.scroll_mark_onscreen(mark)
