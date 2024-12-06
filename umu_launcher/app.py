@@ -323,17 +323,29 @@ class UmuRunLauncher(Gtk.Application):
         """Save configuration to file"""
         logger.debug("Saving configuration to %s", os.path.expanduser("~/.config/umu-launcher/config.json"))
         try:
+            # Validate game paths before saving
+            for game in self.config.get('games', []):
+                if isinstance(game, dict):
+                    game_path = game.get('path')
+                    if not game_path or not os.path.isfile(os.path.expanduser(game_path)):
+                        logger.warning(f"Removing invalid game path from config: {game_path}")
+                        self.config['games'].remove(game)
+            
+            # Ensure config directory exists
             config_dir = os.path.expanduser("~/.config/umu-launcher")
             os.makedirs(config_dir, exist_ok=True)
             config_file = os.path.join(config_dir, "config.json")
             
+            # Save config with pretty formatting
             with open(config_file, 'w') as f:
                 json.dump(self.config, f, indent=4)
                 
             logger.debug("Configuration saved successfully")
             
         except Exception as e:
-            logger.error("Error saving config: %s", e)
+            error_msg = f"Error saving config: {str(e)}"
+            logger.error(error_msg)
+            self.show_error_dialog(error_msg)
 
     def launch_game(self, game_path):
         """Launch a specific game by path"""
@@ -414,21 +426,37 @@ class UmuRunLauncher(Gtk.Application):
                 # Show config window for the new game
                 from .game_config_window import GameConfigWindow
                 def on_game_updated(updated_game, confirmed):
+                    nonlocal file_path  # Add this line to access outer scope variable
                     if confirmed:
-                        # Only add the game if user clicked Save
-                        self.games.append(game_info)
-                        
-                        # Save to config
-                        if 'games' not in self.config:
-                            self.config['games'] = []
-                        self.config['games'].append({
-                            'path': file_path,
-                            'name': game_info.name,
-                            'icon': game_info.icon,
-                            'flags': self.config['flags'].copy()  # Use global settings as defaults
-                        })
-                        self.save_config()
-                        
+                        try:
+                            # Only add the game if user clicked Save
+                            self.games.append(game_info)
+                            
+                            # Normalize the file path
+                            file_path = os.path.abspath(os.path.expanduser(file_path))
+                            
+                            # Save to config
+                            if 'games' not in self.config:
+                                self.config['games'] = []
+                                
+                            # Create game config with normalized path
+                            game_config = {
+                                'path': file_path,
+                                'name': game_info.name,
+                                'icon': game_info.icon,
+                                'flags': self.config['flags'].copy()  # Use global settings as defaults
+                            }
+                            
+                            # Add to config and save
+                            self.config['games'].append(game_config)
+                            self.save_config()
+                            
+                        except Exception as e:
+                            error_msg = f"Error adding game: {str(e)}"
+                            logger.error(error_msg)
+                            self.show_error_dialog(error_msg)
+                            return
+                            
                     # Refresh the list
                     self.game_list.refresh()
                 

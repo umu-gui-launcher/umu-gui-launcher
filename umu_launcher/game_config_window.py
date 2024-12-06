@@ -457,22 +457,26 @@ class GameConfigWindow(Gtk.Dialog):
     
     def on_result_selected(self, list_box, row):
         """Handle search result selection"""
-        if not row or not hasattr(row, 'icon_info'):
-            return
-        
-        # Store selected icon info
-        self.selected_icon_info = row.icon_info
-        
-        # Update icon preview
-        def on_icon_loaded(pixbuf):
-            if pixbuf:
-                self.icon_image.set_pixbuf(pixbuf)
-        
-        if self.selected_icon_info.get('source') == 'steamgrid':
-            self.icon_manager.get_icon(self.selected_icon_info.get('name'), on_icon_loaded)
-        else:
-            self.icon_manager.get_icon(self.selected_icon_info.get('filename'), on_icon_loaded)
-
+        if row:
+            icon_info = row.icon_info
+            try:
+                # Download the icon using the game's set_icon method
+                if self.game.set_icon(icon_info['url']):
+                    # Update the icon preview
+                    try:
+                        pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_size(self.game.icon, 64, 64)
+                        if pixbuf:
+                            self.icon_image.set_pixbuf(pixbuf)
+                            # Store selected icon info
+                            self.selected_icon_info = {
+                                'source': 'download',
+                                'filename': self.game.icon
+                            }
+                    except Exception as e:
+                        print(f"Error loading icon preview: {e}")
+            except Exception as e:
+                print(f"Error downloading icon: {e}")
+    
     def on_browse_clicked(self, button):
         """Handle browse button click"""
         dialog = Gtk.FileChooserDialog(
@@ -638,7 +642,10 @@ class GameConfigWindow(Gtk.Dialog):
                 
                 # Update icon if one was selected
                 if self.selected_icon_info:
-                    self.game.icon = self.selected_icon_info['path']
+                    if self.selected_icon_info['source'] == 'remove':
+                        self.game.icon = None
+                    else:
+                        self.game.icon = self.selected_icon_info['filename']
                 
                 # Get app instance
                 app = self.get_transient_for().get_application()
@@ -649,6 +656,7 @@ class GameConfigWindow(Gtk.Dialog):
                     if isinstance(game_config, dict) and game_config.get('path') == self.game.file_path:
                         # Update existing configuration
                         game_config.update({
+                            'path': self.game.file_path,  # Ensure path is included in update
                             'name': self.game.name,
                             'icon': self.game.icon,
                             'flags': {
@@ -664,7 +672,7 @@ class GameConfigWindow(Gtk.Dialog):
                 if not found:
                     # Add new configuration
                     app.config['games'].append({
-                        'path': self.game.file_path,
+                        'path': self.game.file_path,  # Use game's file_path
                         'name': self.game.name,
                         'icon': self.game.icon,
                         'flags': {
@@ -687,6 +695,16 @@ class GameConfigWindow(Gtk.Dialog):
                     self.callback(self.game, False)
         except Exception as e:
             print(f"Error saving game configuration: {e}")
+            # Show error dialog
+            dialog = Gtk.MessageDialog(
+                transient_for=self.get_root(),
+                modal=True,
+                message_type=Gtk.MessageType.ERROR,
+                buttons=Gtk.ButtonsType.OK,
+                text=f"Error saving configuration: {str(e)}"
+            )
+            dialog.connect("response", lambda d, r: d.destroy())
+            dialog.present()
         finally:
             # Clear icon cache before closing
             self.icon_manager.clear_cache()

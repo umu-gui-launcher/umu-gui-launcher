@@ -7,22 +7,39 @@ from pathlib import Path
 
 class GameInfo:
     def __init__(self, file_path, name=None, icon=None):
-        self.file_path = file_path
+        if not file_path:
+            raise ValueError("Game file path cannot be empty")
+            
+        # Normalize and validate the file path
+        self.file_path = os.path.abspath(os.path.expanduser(file_path))
+        if not os.path.isfile(self.file_path):
+            raise ValueError(f"Game file does not exist: {self.file_path}")
+            
         self.name = name if name else self._get_name()
         self.icon = icon if icon else self._get_icon_path()
         self.process = None
-        self._size = os.path.getsize(file_path)
+        try:
+            self._size = os.path.getsize(self.file_path)
+        except OSError as e:
+            raise ValueError(f"Cannot access game file: {e}")
+            
         self._determine_type()
         
     def _get_name(self):
         """Get game name from parent folder name"""
-        return os.path.basename(os.path.dirname(self.file_path))
+        try:
+            return os.path.basename(os.path.dirname(self.file_path))
+        except Exception:
+            return os.path.basename(self.file_path)
         
     def _get_icon_path(self):
         """Get path to game icon if it exists"""
-        game_dir = os.path.dirname(self.file_path)
-        icon_path = os.path.join(game_dir, "icon.png")
-        return icon_path if os.path.exists(icon_path) else None
+        try:
+            game_dir = os.path.dirname(self.file_path)
+            icon_path = os.path.join(game_dir, "icon.png")
+            return icon_path if os.path.exists(icon_path) and os.path.isfile(icon_path) else None
+        except Exception:
+            return None
         
     def set_icon(self, icon_url):
         """Download and set a new icon for the game"""
