@@ -603,8 +603,8 @@ class GameList(Gtk.Box):
             # Setup environment
             env = os.environ.copy()
             
-            # Set fixed GAMEID for all games
-            env['GAMEID'] = 'umu-dauntless'
+            # Set GAMEID from game-specific config, fallback to default
+            env['GAMEID'] = flags.get('gameid', 'umu-dauntless').strip()
             
             # Set STORE type (default to egs)
             env['STORE'] = flags.get('store', 'egs').strip()
